@@ -1,0 +1,183 @@
+{
+  "github": {
+    "repo": "acme/shop",
+    "remote": "origin",
+    "feedback_authors": [
+      "alice",
+      "claude[bot]"
+    ],
+    "review_trigger": "@claude review"
+  },
+  "branches": {
+    "base": "dev",
+    "protected": [
+      "dev",
+      "main"
+    ]
+  },
+  "conventions": {
+    "commit_types": [
+      "feat",
+      "fix",
+      "docs",
+      "style",
+      "refactor",
+      "perf",
+      "test",
+      "build",
+      "ci",
+      "chore",
+      "revert"
+    ],
+    "subject_max_length": 72
+  },
+  "commit_trailers": [
+    "Co-Authored-By: Claude <noreply@anthropic.com>"
+  ],
+  "docs_dir": "docs/features",
+  "task_limits": {
+    "max_lines": 300,
+    "max_files": 10
+  },
+  "naming": {
+    "feature_issue_title": "Feature: {feature_name}",
+    "task_issue_title": "{task_title}",
+    "fix_issue_title": "Fix: {task_title}",
+    "integration_branch": "feat/{feature_issue}-{feature_slug}",
+    "task_branch": "{task_type}/{task_issue}-{task_slug}",
+    "task_pr_title": "{task_type}{task_scope}: {task_title} (#{task_issue})",
+    "final_pr_title": "feat: {feature_name}",
+    "task_commit": "{task_type}{task_scope}: {task_title}",
+    "review_fix_commit": "{task_type}{task_scope}: address review round {round}"
+  },
+  "commands": {
+    "install": [
+      {
+        "dir": "frontend",
+        "run": "npm ci --prefer-offline"
+      },
+      {
+        "dir": "backend",
+        "run": "uv sync"
+      }
+    ],
+    "build": [
+      {
+        "dir": "frontend",
+        "run": "npm run build"
+      }
+    ],
+    "lint": [
+      {
+        "dir": "frontend",
+        "run": "npm run lint"
+      }
+    ],
+    "format_check": [
+      {
+        "dir": "frontend",
+        "run": "npx --no-install prettier --check ."
+      },
+      {
+        "dir": "backend",
+        "run": "uv run ruff format --check ."
+      }
+    ],
+    "test": [
+      {
+        "dir": "frontend",
+        "run": "npm test"
+      },
+      {
+        "dir": "backend",
+        "run": "uv run pytest"
+      }
+    ],
+    "acceptance": {
+      "dir": "frontend",
+      "run": "npm test -- --reporter=json --outputFile={output} {files}"
+    }
+  },
+  "format": [
+    {
+      "dir": "frontend",
+      "match": [
+        "*.ts",
+        "*.tsx",
+        "*.js",
+        "*.jsx",
+        "*.css",
+        "*.json",
+        "*.html",
+        "*.md"
+      ],
+      "exclude": [
+        "node_modules/*",
+        "dist/*"
+      ],
+      "write": "node_modules/.bin/prettier --write --log-level warn",
+      "check": "node_modules/.bin/prettier --list-different"
+    },
+    {
+      "dir": "backend",
+      "match": [
+        "*.py"
+      ],
+      "exclude": [
+        ".venv/*"
+      ],
+      "write": "uv run --quiet ruff format",
+      "check": "uv run --quiet ruff format --check"
+    }
+  ],
+  "lanes": {
+    "A": {
+      "frontend_port": 5181,
+      "backend_port": 8081
+    },
+    "B": {
+      "frontend_port": 5182,
+      "backend_port": 8082
+    }
+  },
+  "dev_servers": [
+    {
+      "name": "backend",
+      "dir": "backend",
+      "run": "uv run fastapi dev app/main.py --port {backend_port}",
+      "env": {
+        "APP_DB_PATH": "{state_dir}/ui-check.db"
+      },
+      "ready": "http://localhost:{backend_port}/api/health"
+    },
+    {
+      "name": "frontend",
+      "dir": "frontend",
+      "run": "npm run dev -- --port {frontend_port} --strictPort",
+      "env": {
+        "API_TARGET": "http://localhost:{backend_port}"
+      },
+      "ready": "http://localhost:{frontend_port}/"
+    }
+  ],
+  "app_url": "http://localhost:{frontend_port}/",
+  "dev_url": "http://localhost:5173/",
+  "blocked_commands": [
+    {
+      "pattern": "(^|[;&|[:space:]])(pip3?|python3? -m pip)[[:space:]]+(install|uninstall)",
+      "message": "use 'uv add' / 'uv run', never pip."
+    },
+    {
+      "pattern": "(source|\\.)[[:space:]]+[^;&|]*\\.venv/bin/activate",
+      "message": "use 'uv run', do not activate the venv manually."
+    },
+    {
+      "pattern": "(npx|npm exec)[[:space:]]+(--[a-z-]+[[:space:]]+)*eslint",
+      "message": "this project lints with oxlint ('npm run lint'), not ESLint."
+    },
+    {
+      "pattern": "(rm|mv|truncate|>)[^;&|]*app\\.db",
+      "message": "do not delete or overwrite the SQLite database (backend/data/app.db)."
+    }
+  ]
+}

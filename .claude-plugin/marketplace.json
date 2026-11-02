@@ -1,0 +1,12 @@
+{
+  "name": "workez",
+  "owner": { "name": "Tri Viet Huynh", "email": "tri.huynh@asnet.com.vn" },
+  "metadata": { "description": "The workez plugin for Claude Code." },
+  "plugins": [
+    {
+      "name": "workez",
+      "source": "./",
+      "description": "Feature workflow from idea to merged PRs: intent, spec, plan, GitHub issues, parallel build, review, UI checks and verification."
+    }
+  ]
+}

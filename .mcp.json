@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "playwright-a": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.83",
+        "--headless",
+        "--isolated",
+        "--browser",
+        "chrome",
+        "--caps",
+        "devtools",
+        "--output-dir",
+        ".claude/workflow/playwright-a"
+      ]
+    },
+    "playwright-b": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.83",
+        "--headless",
+        "--isolated",
+        "--browser",
+        "chrome",
+        "--caps",
+        "devtools",
+        "--output-dir",
+        ".claude/workflow/playwright-b"
+      ]
+    }
+  }
+}
