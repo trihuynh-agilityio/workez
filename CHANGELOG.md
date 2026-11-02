@@ -12,19 +12,16 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [0.1.0] - 2026-11-02
 
+First release of workez: a Claude Code plugin that takes a feature from intent to merged pull requests, with GitHub issues, review and verification along the way.
+
 ### Added
 
-- The feature workflow: skills `plan-feature`, `design-feature`, `write-plan`, `create-task-issues`, `build-feature`, `verify-feature`, `review-task`, `create-task-pr`, `write-intent`, `write-spec` and `project-context`; agents `github-ops`, `implementer`, `code-reviewer`, `spec-reviewer`, `ui-verifier` and `e2e-verifier`; the guard, format and phase hand-off hooks; the Playwright servers `playwright-a` and `playwright-b`.
-- `setup` skill and `scripts/setup-project.sh`: draft a project's `.claude/workflow.json`, merge the permission rules into `.claude/settings.json` and add the runtime folders to `.gitignore`.
-- `doctor` skill and `scripts/doctor.sh`: a read-only check of the tools and versions, `workflow.json` (required keys, branch prefix, lanes, ports, command folders), the setup, the git remote and GitHub access.
-- `notify-on-finish.sh` hook: a macOS notification when Claude finishes, with the project, the git branch and a one-line summary of Claude's last reply.
-- Requirements section in the README.
-- README logo for light and dark themes, badges, and animated GIFs of `plan-feature`, the approval gates and the two build lanes (`docs/assets/`).
-- Conventional Commits 1.0.0 for commits and branches: `conventions` in `workflow.json` (`commit_types`, `subject_max_length`), `{task_type}` and `{task_scope}` in `naming`, a **Type** and **Scope** per plan task, the `check-conventions.sh` hook for `git commit -m` and new branches, and checks in `check-task.sh` and `doctor.sh`. Workflow commits (`commit-feature-doc.sh`, `publish-evidence.sh`) use it too.
-- `commit_trailers` in `workflow.json`: the trailer lines of every workflow commit (default `Co-Authored-By: Claude <noreply@anthropic.com>`).
-- `templates/workflow.example.json` and `templates/github-workflows/claude-review.yml`.
-- Project discovery: scripts use `$WF_PROJECT` or the nearest `.claude/workflow.json` at or above the current folder, mapped to the main checkout inside a worktree. Hooks do nothing in a project without `.claude/workflow.json`.
-- Tests for project discovery, the hooks in projects without the workflow, `setup-project.sh` and `doctor.sh`.
+- The feature workflow in four phases (plan, design, build, verify), with an approval gate between them: skills `plan-feature`, `design-feature`, `write-plan`, `create-task-issues`, `build-feature`, `verify-feature`, `review-task`, `create-task-pr`, `write-intent`, `write-spec` and `project-context`.
+- Agents `github-ops`, `implementer`, `code-reviewer`, `spec-reviewer`, `ui-verifier` and `e2e-verifier`.
+- Two build lanes that run tasks in parallel worktrees, each with its own Playwright server (`playwright-a`, `playwright-b`).
+- Hooks: guards against forbidden commands and pushes to protected branches, format on edit, the phase hand-off, Conventional Commits checks, and a macOS notification when Claude finishes.
+- `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
+- Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
 [Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/trihuynh-agilityio/workez/releases/tag/v0.1.0
