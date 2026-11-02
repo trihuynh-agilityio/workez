@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fake gh: pr list -> one OPEN PR 5 for feat/a, MERGED 6 for feat/b; api -> fixed feedback; applies -q with jq.
+q=""; args=("$@")
+for ((i=0;i<${#args[@]};i++)); do [[ "${args[$i]}" == -q ]] && q="${args[$((i+1))]}"; done
+echo "$*" >>"$GHW_LOG"
+if [[ "$1 $2" == "pr list" ]]; then
+  [[ "$*" == *"--head feat/a"* ]] && data='[{"number":5,"state":"OPEN","createdAt":"2026-01-01"}]'
+  [[ "$*" == *"--head feat/b"* ]] && data='[{"number":6,"state":"MERGED","createdAt":"2026-01-01"}]'
+  [[ "$*" == *"--head feat/c"* ]] && data='[]'
+else
+  case "$*" in
+    *issues/5/comments*) data='[{"id":1,"user":{"login":"alice"},"body":"please fix"},{"id":2,"user":{"login":"mallory"},"body":"x"},{"id":3,"user":{"login":"alice"},"body":"  /review  "},{"id":4,"user":{"login":"bot[bot]"},"body":"<!-- workflow-reply -->\nok"},{"id":7,"user":{"login":"bot[bot]"},"body":"nit"}]' ;;
+    *reviews*) data='[{"id":8,"user":{"login":"alice"},"state":"APPROVED","body":""},{"id":9,"user":{"login":"alice"},"state":"CHANGES_REQUESTED","body":"no"}]' ;;
+    *) data='[]' ;;
+  esac
+fi
+jq -r "$q" <<<"$data"

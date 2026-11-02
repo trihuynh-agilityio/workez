@@ -1,0 +1,31 @@
+name: Plugin tests
+
+# Runs the workez plugin's tests (scripts and hooks) in throwaway repositories with a fake gh.
+# They never call GitHub or push anything.
+on:
+  pull_request:
+    paths: ["agents/**", "hooks/**", "scripts/**", "skills/**", "tests/**", ".mcp.json", ".claude-plugin/**", "CHANGELOG.md", "tools/**", ".github/workflows/plugin-tests.yml"]
+  push:
+    branches: [main]
+    paths: ["agents/**", "hooks/**", "scripts/**", "skills/**", "tests/**", ".mcp.json", ".claude-plugin/**", "CHANGELOG.md", "tools/**", ".github/workflows/plugin-tests.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          for t in git jq perl python3 curl lsof; do command -v "$t" >/dev/null || missing="$missing $t"; done
+          if [ -n "$missing" ]; then sudo apt-get update -qq && sudo apt-get install -y -qq $missing; fi
+
+      - name: Version and changelog agree
+        run: bash tools/check-version.sh
+
+      - name: Run the workez tests
+        run: bash tests/run-all.sh -v

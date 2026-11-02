@@ -1,0 +1,27 @@
+# Changelog
+
+Every notable change to the workez plugin. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+
+- **major**: a change that needs action in projects already using the plugin, such as a renamed or removed `workflow.json` key, skill or agent, or a new required key;
+- **minor**: a new skill, agent, script or optional `workflow.json` key;
+- **patch**: a fix or wording change that keeps every project working as it is.
+
+Add each change under `Unreleased` as you make it. `tools/release.sh` turns that section into a version (see README).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-11-02
+
+First release of workez: a Claude Code plugin that takes a feature from intent to merged pull requests, with GitHub issues, review and verification along the way.
+
+### Added
+
+- The feature workflow in four phases (plan, design, build, verify), with an approval gate between them: skills `plan-feature`, `design-feature`, `write-plan`, `create-task-issues`, `build-feature`, `verify-feature`, `review-task`, `create-task-pr`, `write-intent`, `write-spec` and `project-context`.
+- Agents `github-ops`, `implementer`, `code-reviewer`, `spec-reviewer`, `ui-verifier` and `e2e-verifier`.
+- Two build lanes that run tasks in parallel worktrees, each with its own Playwright server (`playwright-a`, `playwright-b`).
+- Hooks: guards against forbidden commands and pushes to protected branches, format on edit, the phase hand-off, Conventional Commits checks, and a macOS notification when Claude finishes.
+- `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
+- Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
+
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/trihuynh-agilityio/workez/releases/tag/v0.1.0

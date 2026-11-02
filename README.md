@@ -1,6 +1,26 @@
-# workez
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <img src="docs/assets/logo-light.svg" alt="workez" width="300">
+  </picture>
+</h1>
 
-A Claude Code plugin that takes a feature from a rough idea to merged pull requests, with a human approving every gate:
+<p align="center">A Claude Code plugin that takes a feature from a rough idea to merged pull requests, with a human approving every gate.</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude_Code-plugin-bc4c00" alt="Claude Code plugin">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-6e7781" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/demo-plan.gif" alt="Running /workez:plan-feature: a grilling question, the intent written and approved, the feature issue and branch, then the Stop hook starting Phase 2" width="880">
+</p>
+
+## How it works
+
+<p align="center">
+  <img src="docs/assets/gates.gif" alt="Claude works through Plan, Design, Plan the work, Build and Verify, and waits at each gate until you approve or merge" width="880">
+</p>
 
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
@@ -9,6 +29,22 @@ A Claude Code plugin that takes a feature from a rough idea to merged pull reque
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
 The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
+
+<p align="center">
+  <img src="docs/assets/build-lanes.gif" alt="Two task cards move in parallel through implementer, check-task, review loop, ui-verifier and task PR in lanes A and B" width="880">
+</p>
+
+## Saving tokens
+
+<p align="center">
+  <img src="docs/assets/token-budget.svg" alt="Opus reasons (design, plan, orchestrators, reviewers), Sonnet writes code (implementer, lanes, UI and E2E checks), Haiku does mechanical calls (github-ops, code scan, check runner), and shell scripts do the rest with no model" width="880">
+</p>
+
+Every token goes where it counts.
+
+- **Right model, right job**: Opus thinks, Sonnet builds, Haiku runs the errands.
+- **Scripts first**: gates and watches cost zero tokens.
+- **Lean context**: each agent reads only what its task needs.
 
 ## Commits and branches
 
