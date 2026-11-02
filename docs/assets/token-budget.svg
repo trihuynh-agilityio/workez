@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="230" viewBox="0 0 1320 230" role="img" aria-label="Opus thinks, Sonnet builds, Haiku runs the errands, scripts cost zero tokens">
+  <style>
+    .sans { font-family: Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .name { font-size: 30px; font-weight: 700; }
+    .role { font-size: 18px; fill: #e6edf3; }
+    .note { font-size: 14px; fill: #8b949e; }
+  </style>
+  <rect width="1320" height="230" fill="#0d1117"/>
+
+  <rect x="40" y="40" width="295" height="150" rx="12" fill="#271c33" stroke="#a371f7" stroke-width="1.5"/>
+  <text x="66" y="92" class="sans name" fill="#d2a8ff">Opus</text>
+  <text x="66" y="126" class="sans role">thinks</text>
+  <text x="66" y="162" class="mono note">design · plan · review</text>
+
+  <rect x="355" y="40" width="295" height="150" rx="12" fill="#172338" stroke="#388bfd" stroke-width="1.5"/>
+  <text x="381" y="92" class="sans name" fill="#79c0ff">Sonnet</text>
+  <text x="381" y="126" class="sans role">builds</text>
+  <text x="381" y="162" class="mono note">code · tests · UI checks</text>
+
+  <rect x="670" y="40" width="295" height="150" rx="12" fill="#14281d" stroke="#3fb950" stroke-width="1.5"/>
+  <text x="696" y="92" class="sans name" fill="#7ee787">Haiku</text>
+  <text x="696" y="126" class="sans role">runs the errands</text>
+  <text x="696" y="162" class="mono note">GitHub · scans · checks</text>
+
+  <rect x="985" y="40" width="295" height="150" rx="12" fill="#161b22" stroke="#6e7681" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="1011" y="92" class="sans name" fill="#e6edf3">Scripts</text>
+  <text x="1011" y="126" class="sans role">0 tokens</text>
+  <text x="1011" y="162" class="mono note">gates · watches</text>
+</svg>

@@ -34,6 +34,18 @@ The `Stop` hook moves from one phase to the next. Nothing in the workflow merges
   <img src="docs/assets/build-lanes.gif" alt="Two task cards move in parallel through implementer, check-task, review loop, ui-verifier and task PR in lanes A and B" width="880">
 </p>
 
+## Saving tokens
+
+<p align="center">
+  <img src="docs/assets/token-budget.svg" alt="Opus reasons (design, plan, orchestrators, reviewers), Sonnet writes code (implementer, lanes, UI and E2E checks), Haiku does mechanical calls (github-ops, code scan, check runner), and shell scripts do the rest with no model" width="880">
+</p>
+
+Every token goes where it counts.
+
+- **Right model, right job**: Opus thinks, Sonnet builds, Haiku runs the errands.
+- **Scripts first**: gates and watches cost zero tokens.
+- **Lean context**: each agent reads only what its task needs.
+
 ## Commits and branches
 
 Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), and branches use the same types:
