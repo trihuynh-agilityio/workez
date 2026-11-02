@@ -32,7 +32,7 @@ Arguments: `<feature-name> [--dry-run]`. With `--dry-run`, run only the read-onl
 
 ## 2. Throwaway worktree
 
-`verify-worktree.sh create <feature-name> <integration branch>`. It fetches `<base>` and the branch (fast-forward only), checks the branch out as local `verify/<feature-name>` in `<repo root>/.claude/worktrees/verify-<feature-name>`, and merges the remote `<base>` into that local branch only when it moved ahead. Exit 3 means a merge conflict: stop, tell the user (the script already removed the worktree), never resolve it. Keep `WORKTREE`, `PROJECT`, `INTEGRATION_HEAD`, `DEV_HEAD` (the base head), `MERGED` for the report. `PROJECT` is the project folder inside the worktree. Never push from it; the push hook and deny rules also forbid pushing the `branches.protected` branches.
+`verify-worktree.sh create <feature-name> <integration branch>`. It fetches `<base>` and the branch (fast-forward only), checks the branch out as local `verify/<feature-name>` in `<repo root>/.claude/worktrees/verify-<feature-name>`, and merges the remote `<base>` into that local branch only when it moved ahead. Exit 3 means a merge conflict: stop, tell the user (the script already removed the worktree), never resolve it. Keep `WORKTREE`, `PROJECT`, `INTEGRATION_HEAD`, `BASE_HEAD` (the base head), `MERGED` for the report. `PROJECT` is the project folder inside the worktree. Never push from it; the push hook and deny rules also forbid pushing the `branches.protected` branches.
 
 From here on, whatever happens (a stop, an error, FAIL), run `verify-worktree.sh remove <feature-name>` last.
 
@@ -48,19 +48,19 @@ Only if the feature has UI (a task has a `UI check:`). Derive the flows from the
 
 Build a table for every requirement in the plan's AC coverage, none left out: `AC | tasks | proving test(s) | result | evidence`.
 
-- Test evidence: `acceptance.json` (Vitest JSON). Test names sit under a `describe` whose title starts with the R id; a requirement is proven by passing tests in that block, and the plan's Test plan names the file. Cross-check that the file exists and the block is not empty.
+- Test evidence: `acceptance.json`, the report `commands.acceptance` writes to `{output}` in whatever format the project's test runner produces (for example Vitest or Jest JSON, or JUnit XML). Test names sit under a group (`describe`, suite or test name prefix) whose title starts with the R id; a requirement is proven by passing tests in that group, and the plan's Test plan names the file. Cross-check that the file exists and the group is not empty.
 - E2E evidence: the flows' `e2e-result.md` lines for that requirement id.
 - VERIFIED only if a passing automated check or E2E flow proves it, and no check that covers it failed. Everything else is UNVERIFIED with the reason (no test found, test failed, E2E blocked, only partly covered). A requirement a test cannot show (for example "nothing else changed") may be proven by the step 6 diff check; say which.
 
 ## 6. Whole-feature review (read-only)
 
-Read `git diff <DEV_HEAD>...<INTEGRATION_HEAD>` (run it with `git -C <WORKTREE>`; changed files and the diff stat first). Use the `workez:project-context` and `review-checklist` skills for the project's standards. Look for: consistency between tasks (interfaces, naming, duplicated logic), security and data handling, observability the spec promises, leftover debug code, scope creep beyond the intent and spec (files outside the plan, backend changes in a frontend-only feature), and anything in the spec's open questions or areas of concern that became a real gap. Each finding: severity (blocker, major, minor), `file:line`, suggested fix. A finding you cannot show in the diff is not a finding.
+Read `git diff <BASE_HEAD>...<INTEGRATION_HEAD>` (run it with `git -C <WORKTREE>`; changed files and the diff stat first). Use the `workez:project-context` and `review-checklist` skills for the project's standards. Look for: consistency between tasks (interfaces, naming, duplicated logic), security and data handling, observability the spec promises, leftover debug code, scope creep beyond the intent and spec (files outside the plan, backend changes in a frontend-only feature), and anything in the spec's open questions or areas of concern that became a real gap. Each finding: severity (blocker, major, minor), `file:line`, suggested fix. A finding you cannot show in the diff is not a finding.
 
 ## 7. Report and verdict
 
 Write `<evidence>/verification.md`:
 
-1. Feature, date, the commits tested (`INTEGRATION_HEAD`, `DEV_HEAD`, `MERGED`, and "tested tree = integration branch merged with <base>, locally" when merged).
+1. Feature, date, the commits tested (`INTEGRATION_HEAD`, `BASE_HEAD`, `MERGED`, and "tested tree = integration branch merged with <base>, locally" when merged).
 2. Results of each check (step, exit code, seconds, one-line summary) and of each E2E flow.
 3. The AC table (step 5).
 4. Review findings (step 6), or "none".

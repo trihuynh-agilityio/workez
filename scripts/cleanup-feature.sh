@@ -76,12 +76,14 @@ drop_worktree() {
   else say KEPT "worktree $wt" "uncommitted or untracked changes"; return 1; fi
 }
 
-# drop_task <branch>: its worktree (where the workflow keeps it, or the older place under the
-# project), then the local branch if the integration branch or the base contains it.
+# drop_task <branch>: its worktree (under the repository root, or under the project when that is a
+# subfolder), then the local branch if the integration branch or the base contains it.
 drop_task() {
   local branch="$1" wt kept=0
-  for wt in "$(wf_worktree_path "$branch")" "$WF_PROJECT/.claude/worktrees/${branch//\//-}"; do
+  local first; first="$(wf_worktree_path "$branch")"
+  for wt in "$first" "$WF_PROJECT/.claude/worktrees/${branch//\//-}"; do
     drop_worktree "$wt" || kept=1
+    [[ "$WF_PROJECT" == "$WF_TOP" ]] && break   # both paths are the same folder
   done
   git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$branch" || return 0
   if ((kept)); then say KEPT "branch $branch" "its worktree was kept"

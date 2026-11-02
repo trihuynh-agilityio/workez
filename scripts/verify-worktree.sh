@@ -8,7 +8,7 @@
 #   it, merges <remote>/<base> into THAT branch only, so the tree is what would land in the base.
 #   A conflict aborts the merge and exits 3 (the worktree is removed).
 #   Prints KEY=value lines: WORKTREE, PROJECT (the project folder inside it), INTEGRATION_HEAD,
-#   DEV_HEAD (the base branch head), MERGED (yes|no).
+#   BASE_HEAD (the base branch head), MERGED (yes|no).
 # remove: removes the worktree and the local verify/<feature-name> branch.
 # This is the only place a merge is allowed; it refuses any path outside .claude/worktrees/verify-*.
 
@@ -50,14 +50,14 @@ git -C "$top" fetch -q "$remote" "$branch:$branch" 2>/dev/null || {
 
 git -C "$top" worktree add -q -b "$tmp_branch" "$wt" "$branch"
 integration_head="$(git -C "$wt" rev-parse HEAD)"
-dev_head="$(git -C "$top" rev-parse "$remote/$base")"
+base_head="$(git -C "$top" rev-parse "$remote/$base")"
 merged=no
-if ! git -C "$wt" merge-base --is-ancestor "$dev_head" HEAD; then
-  if git -C "$wt" merge --no-edit -q "$dev_head" >/dev/null 2>&1; then
+if ! git -C "$wt" merge-base --is-ancestor "$base_head" HEAD; then
+  if git -C "$wt" merge --no-edit -q "$base_head" >/dev/null 2>&1; then
     merged=yes
   else
     git -C "$wt" merge --abort 2>/dev/null || true
-    echo "CONFLICT merging $remote/$base ($dev_head) into $branch; not resolved here" >&2
+    echo "CONFLICT merging $remote/$base ($base_head) into $branch; not resolved here" >&2
     remove
     exit 3
   fi
@@ -66,5 +66,5 @@ fi
 echo "WORKTREE=$wt"
 echo "PROJECT=$(wf_project_in "$wt")"
 echo "INTEGRATION_HEAD=$integration_head"
-echo "DEV_HEAD=$dev_head"
+echo "BASE_HEAD=$base_head"
 echo "MERGED=$merged"

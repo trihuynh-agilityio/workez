@@ -49,6 +49,6 @@ for f in "$wt/$task"/*; do
   name="$(basename "$f")"
   echo "**${name%.*}**"
   echo
-  echo "![${name%.*}](https://raw.githubusercontent.com/$repo/$sha/$task/$name)"
+  echo "![${name%.*}](https://github.com/$repo/blob/$sha/$task/$name?raw=true)"
   echo
 done

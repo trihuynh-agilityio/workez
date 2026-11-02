@@ -66,7 +66,7 @@ Task ids (`T1`, `T2`) are keys inside the plan, the review reports (`<docs_dir>/
 | `task_limits` | `max_lines` and `max_files` of one task (the limit is "under") |
 | `naming` | patterns for titles and branches; placeholders `{feature_name}`, `{feature_slug}`, `{feature_issue}`, `{task_title}`, `{task_slug}`, `{task_issue}`, `{round}`, and with `conventions` `{task_type}` (the task's **Type** in the plan) and `{task_scope}` (`(<scope>)`, or nothing). Changing `feature_issue_title` orphans existing feature issues, because `find-issue` matches it exactly |
 | `commands.install`, `build`, `lint`, `format_check`, `test` | lists of `{dir, run}`, run in that order by `verify-checks.sh` and the integration check; `install` also prepares a new worktree |
-| `commands.acceptance` | `{dir, run}` with `{output}` (a JSON report path) and `{files}` (the plan's acceptance test files, relative to `dir`) |
+| `commands.acceptance` | `{dir, run}` with `{output}` (the report path, in any format the test runner writes) and `{files}` (the plan's acceptance test files, relative to `dir`) |
 | `format` | rules `{dir, match, exclude, write, check}`: globs relative to `dir`; `write` and `check` get absolute file paths appended and run in `dir` of the main checkout |
 | `lanes` | exactly two, `A` and `B` (see "Two lanes"), each a map of named ports (`frontend_port`, ...) used as placeholders |
 | `dev_servers` | `{name, dir, run, env, ready}` per server; placeholders are the lane's ports and `{state_dir}` (a fresh temp folder per lane) |
