@@ -10,6 +10,11 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+
+- The build watches (`build-feature`, `build-task`) now see failed CI checks and merge conflicts on an open task PR. A failed check goes through the same triage and fix rounds as review feedback, with its CI log; a conflict is reported to you, never resolved by the workflow. `gh-watch.sh` prints `CHECKS` and `CONFLICT` lines, and `github-ops` has a `get-pr-checks` operation.
+- `setup-project.sh` allows `gh api repos/<repo>/actions/jobs/*`, to read a failed job's log. Rerun it in projects already set up.
+
 ## [0.2.0] - 2026-11-03
 
 ### Added
