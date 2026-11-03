@@ -10,6 +10,8 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-03
+
 ### Added
 
 - The build watches (`build-feature`, `build-task`) now see failed CI checks and merge conflicts on an open task PR. A failed check goes through the same triage and fix rounds as review feedback, with its CI log; a conflict is reported to you, never resolved by the workflow. `gh-watch.sh` prints `CHECKS` and `CONFLICT` lines, and `github-ops` has a `get-pr-checks` operation.
@@ -48,6 +50,7 @@ First release of workez: a Claude Code plugin that takes a feature from intent t
 - `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
 - Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
-[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/trihuynh-agilityio/workez/releases/tag/v0.1.0
