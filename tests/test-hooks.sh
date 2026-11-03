@@ -72,6 +72,17 @@ for v in off OFF 0 false no; do
   [[ -z "$out" ]] && ok "$n: WF_NOTIFY=$v turns it off" || ko "$n: WF_NOTIFY=$v notified: $out"
 done
 [[ -n "$(jq -n --arg d "$T/app" '{cwd:$d}' | WF_NOTIFY=on notify)" ]] && ok "$n: WF_NOTIFY=on notifies" || ko "$n: WF_NOTIFY=on"
+# "notify": workflow.local.json wins over workflow.json, WF_NOTIFY over both.
+said() { [[ -n "$(jq -n --arg d "$T/app" '{cwd:$d}' | notify)" ]] && echo on || echo off; }
+cp "$T/app/.claude/workflow.json" "$T/w.json"
+jq '.notify = false' "$T/w.json" >"$T/app/.claude/workflow.json"
+[[ "$(said)" == off ]] && ok "$n: notify false in workflow.json turns it off" || ko "$n: workflow.json notify false"
+echo '{"notify": true}' >"$T/app/.claude/workflow.local.json"
+[[ "$(said)" == on ]] && ok "$n: workflow.local.json overrides workflow.json" || ko "$n: local true over team false"
+cp "$T/w.json" "$T/app/.claude/workflow.json"; echo '{"notify": false}' >"$T/app/.claude/workflow.local.json"
+[[ "$(said)" == off ]] && ok "$n: notify false in workflow.local.json turns it off" || ko "$n: local notify false"
+[[ "$(WF_NOTIFY=on said)" == on ]] && ok "$n: WF_NOTIFY overrides workflow.local.json" || ko "$n: WF_NOTIFY over local"
+rm "$T/app/.claude/workflow.local.json"
 # The cooldown: one notification per session within WF_NOTIFY_COOLDOWN seconds; other sessions are apart.
 export TMPDIR="$T/tmp"; mkdir -p "$TMPDIR"
 ask() { jq -n --arg d "$T/app" --arg s "$1" '{cwd:$d, session_id:$s, hook_event_name:"PreToolUse", tool_name:"AskUserQuestion",

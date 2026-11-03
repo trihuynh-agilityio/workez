@@ -8,6 +8,7 @@
 # Sets:
 #   WF_PROJECT  the project folder of the main checkout (the folder that holds .claude/workflow.json)
 #   WF_CONFIG   its workflow.json
+#   WF_LOCAL    its workflow.local.json: one person's overrides, gitignored, maybe absent (see wf_personal)
 #   WF_TOP      the main repository root (also right when called from a worktree)
 #   WF_PREFIX   the project's path inside the repository, with a trailing slash, or "" at the root
 #   WF_HOME     the plugin folder (scripts/, hooks/, skills/ ...)
@@ -45,6 +46,7 @@ if [[ "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-dir)" != "$
   unset _wf_sub
 fi
 WF_CONFIG="$WF_PROJECT/.claude/workflow.json"
+WF_LOCAL="$WF_PROJECT/.claude/workflow.local.json"
 WF_PREFIX="${WF_PROJECT#"$WF_TOP"}"
 WF_PREFIX="${WF_PREFIX#/}"
 [[ -n "$WF_PREFIX" ]] && WF_PREFIX="$WF_PREFIX/"
@@ -52,6 +54,21 @@ export WF_PROJECT
 
 # cfg <jq filter>: one raw value (arrays and objects come out as JSON).
 cfg() { jq -r "$1 // empty" "$WF_CONFIG"; }
+
+# The keys workflow.local.json may set: personal choices only, never the team's rules (branches,
+# blocked_commands, conventions ...), so nobody can loosen those on their own machine. doctor.sh warns
+# about any other key there, and nothing reads it.
+WF_PERSONAL_KEYS=(notify)
+
+# wf_personal <key>: a personal key's raw value, from workflow.local.json, else workflow.json, else
+# nothing. A false value comes out as "false" (unlike cfg, whose // drops it).
+wf_personal() {
+  local f
+  for f in "$WF_LOCAL" "$WF_CONFIG"; do
+    [[ -f "$f" ]] && jq -e --arg k "$1" 'has($k)' "$f" >/dev/null 2>&1 && { jq -r --arg k "$1" '.[$k]' "$f"; return 0; }
+  done
+  return 1
+}
 
 # wf_fill <template> [key=value ...]: replaces each {key} in the template.
 wf_fill() {

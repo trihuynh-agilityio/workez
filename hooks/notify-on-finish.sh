@@ -11,16 +11,21 @@
 # other sessions in the same project stay quiet. At most one notification per session every
 # WF_NOTIFY_COOLDOWN seconds (default 15), so one wait that fires two events (a question and its
 # permission prompt) notifies once.
-# WF_NOTIFY=off (or 0, false, no) turns it off: set it in the "env" of ~/.claude/settings.json for every
-# project, or of .claude/settings.local.json for one.
+# Off when "notify" is false in .claude/workflow.local.json (for you, in this project), else in
+# .claude/workflow.json (for everyone). WF_NOTIFY=on or off (also 1/0, true/false, yes/no) wins over both:
+# set it in the "env" of ~/.claude/settings.json for every project.
 # Never blocks; silently does nothing off macOS. WF_NOTIFY_DRY_RUN=1 prints the three lines instead (for tests).
 
-[[ "$(tr '[:upper:]' '[:lower:]' <<<"${WF_NOTIFY:-on}")" =~ ^(off|0|false|no)$ ]] && exit 0
 [[ -n "${WF_NOTIFY_DRY_RUN:-}" ]] || command -v osascript >/dev/null 2>&1 || exit 0
 input="$(cat)"
 # Only in projects that use the workflow (a .claude/workflow.json); needs jq.
 command -v jq >/dev/null 2>&1 || exit 0
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/hook-env.sh" || exit 0
+if [[ -n "${WF_NOTIFY:-}" ]]; then
+  [[ "$(tr '[:upper:]' '[:lower:]' <<<"$WF_NOTIFY")" =~ ^(off|0|false|no)$ ]] && exit 0
+else
+  [[ "$(wf_personal notify)" == false ]] && exit 0
+fi
 transcript="$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)"
 [[ -f "$transcript" ]] && grep -Eq '"skill": ?"workez:|<command-name>/workez:' "$transcript" 2>/dev/null || exit 0
 

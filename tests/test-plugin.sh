@@ -42,7 +42,8 @@ jq -e '.permissions.allow | (index("Bash(gh api repos/acme/web/issues/*)") and i
   && ok "setup: allow rules from the config" || ko "setup allow: $(jq -c .permissions.allow "$s")"
 jq -e '.permissions.deny | (index("Bash(git push * main)") and (map(select(. == "Bash(gh pr merge *)")) | length == 1))' "$s" >/dev/null \
   && ok "setup: deny rules, no duplicates on re-run" || ko "setup deny: $(jq -c .permissions.deny "$s")"
-[[ "$(grep -cxF '.claude/workflow/' "$P/.gitignore")" == 1 && "$(grep -cxF 'specs/*/evidence/' "$P/.gitignore")" == 1 ]] \
+[[ "$(grep -cxF '.claude/workflow/' "$P/.gitignore")" == 1 && "$(grep -cxF 'specs/*/evidence/' "$P/.gitignore")" == 1 \
+  && "$(grep -cxF '.claude/workflow.local.json' "$P/.gitignore")" == 1 ]] \
   && ok "setup: .gitignore lines added once" || ko "setup gitignore: $(cat "$P/.gitignore")"
 
 # doctor.sh: read-only checks of the config, the setup and the remote.
@@ -53,6 +54,17 @@ for line in "OK    workflow.json keys" "OK    branch naming" "OK    lanes" "OK  
   [[ "$out" == *"$line"* ]] && ok "doctor: ${line#OK    }" || ko "doctor: no '$line' in: $out"
 done
 [[ "$out" == *"FAIL  command folders"*"frontend"* ]] && ok "doctor: missing command folders fail" || ko "doctor folders: $out"
+# workflow.local.json: personal keys only, true/false, never committed.
+echo '{"notify": false}' >"$P/.claude/workflow.local.json"
+out="$(doc)"
+[[ "$out" == *'OK    workflow.local.json      {"notify":false}'* ]] && ok "doctor: workflow.local.json with personal keys" || ko "doctor local ok: $out"
+echo '{"notify": "no", "branches": {"protected": []}}' >"$P/.claude/workflow.local.json"
+out="$(doc)"
+[[ "$out" == *"WARN  workflow.local.json"*"ignored keys: branches"* && "$out" == *"WARN  notify"*workflow.local.json* ]] \
+  && ok "doctor: warns about team keys and a non-boolean notify" || ko "doctor local warn: $out"
+git -C "$T/repo" add -f "$P/.claude/workflow.local.json"
+[[ "$(doc)" == *"WARN  workflow.local.json"*"is committed"* ]] && ok "doctor: warns when workflow.local.json is tracked" || ko "doctor local tracked"
+git -C "$T/repo" rm -q --cached "$P/.claude/workflow.local.json"; rm "$P/.claude/workflow.local.json"
 cp "$P/.claude/workflow.json" "$T/w.json"
 jq '.naming.task_branch = "task/{task_slug}" | .lanes.C = {"x": 1} | del(.github.repo)' "$T/w.json" >"$P/.claude/workflow.json"
 out="$(doc)"; rc=$?

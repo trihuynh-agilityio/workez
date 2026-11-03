@@ -44,6 +44,7 @@ The build expects a reviewer on each task PR. Offer to copy `${CLAUDE_PLUGIN_ROO
 Run `${CLAUDE_PLUGIN_ROOT}/scripts/doctor.sh` again and fix what it reports as `FAIL` that this skill owns (`workflow.json`, permissions, `.gitignore`); list the rest for the user. Then tell the user:
 
 - what was written, and that `.claude/workflow.json` and `.claude/settings.json` should be committed;
+- that each person can turn the macOS notifications off for themselves with `{ "notify": false }` in `.claude/workflow.local.json` (gitignored, never committed);
 - that `CLAUDE.md` should describe the stack, rules and how to run one test, since every phase reads it;
 - to run `/reload-plugins` (or start a new session) so the hooks see the new config;
 - how to start: `/workez:plan-feature <idea>`.

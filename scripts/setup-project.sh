@@ -3,7 +3,7 @@
 #   - merges the workflow's permission rules into .claude/settings.json (permissions cannot read
 #     workflow.json, so they are written out per project: gh api paths, remote, branch prefixes,
 #     protected branches, the project's commands, the plugin scripts and Playwright servers),
-#   - adds the workflow's runtime folders to .gitignore.
+#   - adds the workflow's runtime folders and the personal .claude/workflow.local.json to .gitignore.
 # Run it from inside the project. Re-running is safe: rules and lines already there are kept once.
 #   setup-project.sh [--dry-run]     (--dry-run prints the result and writes nothing)
 set -euo pipefail
@@ -49,7 +49,7 @@ merged="$(jq --argjson a "$allow" --argjson d "$deny" '
   | .permissions.deny = (((.permissions.deny // []) + $d) | reduce .[] as $x ([]; if index([$x]) then . else . + [$x] end))' <<<"$current")"
 
 ignore="$WF_PROJECT/.gitignore"
-lines=(".claude/workflow/" ".claude/worktrees/" "$docs/*/reviews/" "$docs/*/evidence/")
+lines=(".claude/workflow/" ".claude/workflow.local.json" ".claude/worktrees/" "$docs/*/reviews/" "$docs/*/evidence/")
 missing=()
 for l in "${lines[@]}"; do grep -qxF -- "$l" "$ignore" 2>/dev/null || missing+=("$l"); done
 

@@ -12,7 +12,7 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ### Added
 
-- `WF_NOTIFY=off` turns the notifications off (set it in the `env` of `~/.claude/settings.json`, or of `.claude/settings.local.json` for one project).
+- A `notify` key turns the notifications off: `false` in `workflow.json` for everyone, or in the new, gitignored `.claude/workflow.local.json` for yourself (it wins). `workflow.local.json` holds only personal keys; `doctor.sh` warns about any other and about the file being committed. The `WF_NOTIFY` env var (`on`/`off`) wins over both, for every project. Rerun `setup-project.sh` to gitignore `workflow.local.json`.
 
 ### Fixed
 
