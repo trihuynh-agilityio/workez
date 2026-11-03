@@ -58,6 +58,23 @@ missing="$(jq -r '. as $root | [ "github.repo", "github.remote", "branches.base"
   "$WF_CONFIG" 2>/dev/null)"
 [[ -z "$missing" ]] && ok "workflow.json keys" || fail "workflow.json keys" "missing: $missing"
 
+# workflow.local.json: one person's overrides, only of the personal keys, never committed.
+for f in "$WF_CONFIG" "$WF_LOCAL"; do
+  [[ -f "$f" ]] && jq -e 'has("notify") and (.notify | type != "boolean")' "$f" >/dev/null 2>&1 \
+    && warn "notify" "must be true or false in $(basename "$f"); notifications stay on"
+done
+if [[ -f "$WF_LOCAL" ]]; then
+  if ! jq -e 'type == "object"' "$WF_LOCAL" >/dev/null 2>&1; then
+    warn "workflow.local.json" "not a valid JSON object; it is ignored"
+  else
+    extra="$(jq -r '[keys[] | select(IN($ARGS.positional[]) | not)] | join(", ")' "$WF_LOCAL" --args "${WF_PERSONAL_KEYS[@]}")"
+    [[ -z "$extra" ]] && ok "workflow.local.json" "$(jq -c . "$WF_LOCAL")" \
+      || warn "workflow.local.json" "ignored keys: $extra (it may set only ${WF_PERSONAL_KEYS[*]}; team rules belong in workflow.json)"
+  fi
+  git -C "$WF_PROJECT" ls-files --error-unmatch "$WF_LOCAL" >/dev/null 2>&1 \
+    && warn "workflow.local.json" "is committed; it is personal: git rm --cached it and rerun setup-project.sh"
+fi
+
 # Branch and commit naming: Conventional Commits with conventions.commit_types, else branches.prefix.
 if wf_conventions; then
   ok "conventions" "Conventional Commits, types $(jq -r '.conventions.commit_types | join(", ")' "$WF_CONFIG")"

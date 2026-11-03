@@ -40,7 +40,7 @@
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
 3. **Plan the work** – `plan.md`: waves of at most two tasks, size limits, acceptance-criteria coverage, then one GitHub sub-issue per task.
-4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, and fixes PR feedback.
+4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
 The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
@@ -151,7 +151,13 @@ Run it from a shell inside the project: no Claude session, no tokens. It reads e
   <img src="docs/assets/notify.gif" alt="Three macOS notifications stack up one by one: my-app needs your answer, my-app needs your approval, my-app finished, each with the branch and a one-line message" width="480">
 </p>
 
-On macOS, `hooks/notify-on-finish.sh` shows a notification whenever Claude needs you, so you can leave the session running in the background. The title is the project folder and why (`needs your answer`, `needs your approval` or `finished`), the subtitle the current branch, and the message the question, the permission request or the start of Claude's last reply. A phase hand-off from the `Stop` hook never notifies, so you hear from it only when Claude really stops. Off macOS it does nothing.
+On macOS, `hooks/notify-on-finish.sh` shows a notification whenever Claude needs you, so you can leave the session running in the background. The title is the project folder and why (`needs your answer`, `needs your approval` or `finished`), the subtitle the current branch, and the message the question, the permission request or the start of Claude's last reply. A phase hand-off from the `Stop` hook never notifies, so you hear from it only when Claude really stops. Only sessions that ran a workez skill notify (other sessions in the same project stay quiet), and each at most once every 15 seconds (set `WF_NOTIFY_COOLDOWN` to change it). To turn them off for yourself in one project, create `.claude/workflow.local.json` (gitignored by `setup-project.sh`):
+
+```json
+{ "notify": false }
+```
+
+`"notify": false` in `workflow.json` turns them off for everyone, and `workflow.local.json` overrides it either way. To turn them off in every project, set `WF_NOTIFY` to `off` in the `env` of `~/.claude/settings.json`; it wins over both files. Off macOS it does nothing.
 
 ## More
 
