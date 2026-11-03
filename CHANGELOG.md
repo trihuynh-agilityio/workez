@@ -13,6 +13,7 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 ### Added
 
 - `build-task` skill: build one small, standalone change without the feature phases. It approves a one-task plan, opens a task issue (or reuses `#<n>`), runs the task pipeline with the full test suite, and opens one PR straight to the base branch.
+- `scripts/status.sh`: run from a shell, without Claude, to see every feature's phase and status, who acts next and what to do, its tasks and its recorded PR states, features waiting on you first (`--short`: one line each). Read-only; reads only the local state files.
 - `github-ops` operations `get-issue` and `create-task-issue`; `swap-label` accepts `-` for no label to remove.
 
 ### Fixed
