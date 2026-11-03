@@ -148,7 +148,7 @@ Run it from a shell inside the project: no Claude session, no tokens. It reads e
 ## Notifications
 
 <p align="center">
-  <img src="docs/assets/notify.gif" alt="macOS notifications from the workez hook: my-app needs your answer, my-app needs your approval, my-app finished, each with the branch and a one-line message" width="880">
+  <img src="docs/assets/notify.gif" alt="Three macOS notifications stack up one by one: my-app needs your answer, my-app needs your approval, my-app finished, each with the branch and a one-line message" width="480">
 </p>
 
 On macOS, `hooks/notify-on-finish.sh` shows a notification whenever Claude needs you, so you can leave the session running in the background. The title is the project folder and why (`needs your answer`, `needs your approval` or `finished`), the subtitle the current branch, and the message the question, the permission request or the start of Claude's last reply. A phase hand-off from the `Stop` hook never notifies, so you hear from it only when Claude really stops. Off macOS it does nothing.
