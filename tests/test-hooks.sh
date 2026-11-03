@@ -36,9 +36,9 @@ expect 0 $p "git log --grep 'git push origin dev'"
 
 # notify-on-finish.sh, dry run: title, branch, then the last reply as one plain line.
 n=notify-on-finish.sh
-notify() { WF_NOTIFY_DRY_RUN=1 bash "$SRC/hooks/$n"; }
+notify() { bash "$SRC/hooks/$n"; }
 out="$(jq -n --arg d "$T/app" '{cwd:$d, last_assistant_message:"## Done\n\n- Added **login** to [auth.ts](src/auth.ts)\n```\nnpm test\n```\n- Tests `pass`"}' | notify)"
-[[ "$out" == $'app\ndev\nDone Added login to auth.ts Tests pass' ]] && ok "$n: summarizes last_assistant_message" || ko "$n: $out"
+[[ "$out" == $'app: finished\ndev\nDone Added login to auth.ts Tests pass' ]] && ok "$n: summarizes last_assistant_message" || ko "$n: $out"
 printf '%s\n' '{"type":"user","message":{"content":"hi"}}' \
   '{"type":"assistant","message":{"content":[{"type":"text","text":"Fixed the \"save\" bug."},{"type":"tool_use","name":"Bash"}]}}' \
   '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit"}]}}' >"$T/transcript.jsonl"
@@ -51,5 +51,13 @@ out="$(jq -n --arg d "$T/app" --arg m "$long" '{cwd:$d, last_assistant_message:$
 [[ "$(jq -Rr length <<<"$out")" == 220 && "$out" == *… ]] && ok "$n: cuts long replies" || ko "$n: $out"
 out="$(jq -n --arg d "$T/app" --arg m "$(printf 'Đã xong %.0s' {1..60})" '{cwd:$d, last_assistant_message:$m}' | notify | tail -n 1)"
 jq -Rre 'length == 220' <<<"$out" >/dev/null && ok "$n: cuts by characters, not bytes" || ko "$n: $out"
+out="$(jq -n --arg d "$T/app" '{cwd:$d, hook_event_name:"Notification", notification_type:"permission_prompt",
+  message:"Claude needs your permission to use Bash"}' | notify)"
+[[ "$out" == $'app: needs your approval\ndev\nClaude needs your permission to use Bash' ]] && ok "$n: permission prompt" || ko "$n: $out"
+out="$(jq -n --arg d "$T/app" '{cwd:$d, hook_event_name:"PreToolUse", tool_name:"AskUserQuestion",
+  tool_input:{questions:[{question:"Approve the plan?"},{question:"Other?"}]}}' | notify)"
+[[ "$out" == $'app: needs your answer\ndev\nApprove the plan?' ]] && ok "$n: AskUserQuestion" || ko "$n: $out"
+out="$(jq -n --arg d "$T/app" '{cwd:$d, hook_event_name:"PreToolUse", tool_name:"ExitPlanMode"}' | notify | head -n 1)"
+[[ "$out" == "app: needs your approval" ]] && ok "$n: ExitPlanMode" || ko "$n: $out"
 
 done_tests

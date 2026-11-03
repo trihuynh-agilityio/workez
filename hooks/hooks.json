@@ -1,5 +1,5 @@
 {
-  "description": "Feature workflow guards, Conventional Commits checks, formatting and phase hand-off. Every hook does nothing in a project without .claude/workflow.json.",
+  "description": "Feature workflow guards, Conventional Commits checks, formatting, phase hand-off and macOS notifications. Every hook does nothing in a project without .claude/workflow.json.",
   "hooks": {
     "PreToolUse": [
       {
@@ -18,6 +18,16 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/check-conventions.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion|ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/notify-on-finish.sh\"",
             "timeout": 10
           }
         ]
@@ -41,8 +51,15 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/next-phase.sh\"",
-            "timeout": 10
-          },
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|elicitation_dialog",
+        "hooks": [
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/notify-on-finish.sh\"",
