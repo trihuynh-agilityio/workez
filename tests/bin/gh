@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Fake gh: pr list -> one OPEN PR 5 for feat/a, MERGED 6 for feat/b; api -> fixed feedback; applies -q with jq.
+# Fake gh: pr list -> one OPEN PR 5 for feat/a, MERGED 6 for feat/b, OPEN 15 for feat/d; pr view -> PR 5
+# clean, PR 15 with a failed check and a conflict; api -> fixed feedback; applies -q with jq.
 q=""; args=("$@")
 for ((i=0;i<${#args[@]};i++)); do [[ "${args[$i]}" == -q ]] && q="${args[$((i+1))]}"; done
 echo "$*" >>"$GHW_LOG"
@@ -7,6 +8,10 @@ if [[ "$1 $2" == "pr list" ]]; then
   [[ "$*" == *"--head feat/a"* ]] && data='[{"number":5,"state":"OPEN","createdAt":"2026-01-01"}]'
   [[ "$*" == *"--head feat/b"* ]] && data='[{"number":6,"state":"MERGED","createdAt":"2026-01-01"}]'
   [[ "$*" == *"--head feat/c"* ]] && data='[]'
+  [[ "$*" == *"--head feat/d"* ]] && data='[{"number":15,"state":"OPEN","createdAt":"2026-01-01"}]'
+elif [[ "$1 $2" == "pr view" ]]; then
+  [[ "$3" == 5 ]] && data='{"headRefOid":"aaaaaaaaaaaaaaaaaaaa","mergeable":"MERGEABLE","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"COMPLETED","conclusion":"SUCCESS"},{"__typename":"CheckRun","name":"old","status":"COMPLETED","conclusion":"CANCELLED"}]}'
+  [[ "$3" == 15 ]] && data='{"headRefOid":"bbbbbbbbbbbbbbbbbbbb","mergeable":"CONFLICTING","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"COMPLETED","conclusion":"FAILURE"},{"__typename":"CheckRun","name":"lint","status":"IN_PROGRESS","conclusion":""},{"__typename":"StatusContext","context":"ci/x","state":"PENDING"}]}'
 else
   case "$*" in
     *issues/5/comments*) data='[{"id":1,"user":{"login":"alice"},"body":"please fix"},{"id":2,"user":{"login":"mallory"},"body":"x"},{"id":3,"user":{"login":"alice"},"body":"  /review  "},{"id":4,"user":{"login":"bot[bot]"},"body":"<!-- workflow-reply -->\nok"},{"id":7,"user":{"login":"bot[bot]"},"body":"nit"}]' ;;

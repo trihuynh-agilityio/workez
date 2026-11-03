@@ -21,4 +21,13 @@ out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --no-feedback)"; rc=$?
   && ok "--no-feedback: open PR with comments exits 0, no feedback calls" || ko "--no-feedback open: rc $rc $out"
 bash "$SRC/scripts/gh-watch.sh" feat/b:12 --no-feedback >/dev/null; rc=$?
 [[ $rc == 10 ]] && ok "--no-feedback: merged PR exits 10" || ko "--no-feedback merged rc $rc"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 1,3,7,9)"; rc=$?
+[[ $rc == 0 && "$out" != *CHECKS* && "$out" != *CONFLICT* ]] && ok "passing and cancelled checks, mergeable: nothing new" || ko "clean PR: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/d:14)"; rc=$?
+[[ $rc == 20 && "$out" == *"CHECKS 15 checks-bbbbbbbbbbbb"* && "$out" == *"CONFLICT 15 conflict-bbbbbbbbbbbb"* ]] \
+  && ok "failed check and conflict on the head commit exit 20" || ko "checks/conflict: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/d:14 --handled 9,checks-bbbbbbbbbbbb,conflict-bbbbbbbbbbbb)"; rc=$?
+[[ $rc == 0 && "$out" != *CHECKS* && "$out" != *CONFLICT* ]] && ok "handled check and conflict ids are dropped" || ko "handled checks: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/d:14 --no-feedback)"; rc=$?
+[[ $rc == 0 && "$out" != *CHECKS* && "$out" != *CONFLICT* ]] && ok "--no-feedback skips checks and conflicts" || ko "--no-feedback checks: rc $rc $out"
 done_tests
