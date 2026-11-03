@@ -13,10 +13,12 @@ git remote add origin "$T/remote.git"
 seed() { git --git-dir="$T/remote.git" fetch -q "$T/app" "+$1:$1"; git fetch -q origin "$1" 2>/dev/null; }
 seed main
 W=.claude/workflow
-hook() { echo "{\"stop_hook_active\": ${1:-false}}" | bash $SRC/hooks/next-phase.sh; }
+# The notification it runs on an allowed stop goes to $T/notify.out.
+hook() { echo "{\"stop_hook_active\": ${1:-false}}" | bash $SRC/hooks/next-phase.sh 2>"$T/notify.out"; }
 
 # ---- next-phase.sh ----
 [[ -z "$(hook)" ]] && ok "hook: no state, stop allowed" || ko "hook: no state"
+[[ "$(head -n 1 "$T/notify.out")" == "app: finished" ]] && ok "hook: an allowed stop notifies" || ko "hook: notify: $(cat "$T/notify.out")"
 
 mkdir -p $W/alpha $W/beta $W/gamma
 echo '{"feature":"alpha","phase":"build","status":"waiting_review","handed_off":true}' >$W/alpha/state.json
@@ -27,6 +29,7 @@ sleep 1
 echo '{"feature":"gamma","phase":"design","status":"done","handed_off":false}' >$W/gamma/state.json
 out="$(hook | jq -r .reason)"
 [[ "$out" == *'"beta"'*design-feature* ]] && ok "hook: oldest ready feature first (beta -> design-feature)" || ko "hook: first: $out"
+[[ ! -s "$T/notify.out" ]] && ok "hook: a hand-off does not notify" || ko "hook: hand-off notified: $(cat "$T/notify.out")"
 [[ "$(jq .handed_off $W/beta/state.json)" == true ]] && ok "hook: beta marked handed off" || ko "hook: mark"
 [[ "$(jq .handed_off $W/gamma/state.json)" == false ]] && ok "hook: gamma untouched" || ko "hook: gamma touched"
 [[ -z "$(hook true)" ]] && ok "hook: stop_hook_active lets the stop through" || ko "hook: stop_hook_active"
@@ -136,5 +139,24 @@ git merge -q --squash feat/11-sq >/dev/null; git commit -q -m "squash"; seed mai
 out="$($SRC/scripts/cleanup-feature.sh demo)"
 git show-ref -q --verify refs/heads/feat/11-sq && [[ "$out" == *"KEPT branch feat/11-sq"*"squash"* ]] \
   && ok "cleanup feature: squash-merged integration branch kept" || ko "squash: $out"
+
+# A standalone task (build-task): the plan is in the runtime folder and the PR target is the base.
+# Merged into main: the task goes, main and its runtime stay apart, the task's evidence branch goes.
+git branch -q feat/20-solo main
+SW="$(wt feat/20-solo)"; git worktree add -q "$SW" feat/20-solo
+echo solo >"$SW/solo.txt"; git -C "$SW" add -A; git -C "$SW" commit -q -m solo
+git merge -q --no-ff -m "Merge solo" feat/20-solo; seed main
+SEV="$(wt feat/20-solo-evidence)"
+git worktree add -q --orphan -b feat/20-solo-evidence "$SEV"; echo s >"$SEV/s.png"; git -C "$SEV" add -A; git -C "$SEV" commit -q -m shots
+seed feat/20-solo-evidence
+mkdir -p $W/solo
+printf '# Task: Solo\nStatus: approved.\n\n## T1: solo  [ ]\n- **Branch**: `feat/20-solo`\n- **PR target**: `main`\n' >$W/solo/plan.md
+echo '{"feature":"solo","phase":"task","status":"done","handed_off":true}' >$W/solo/state.json
+[[ -z "$(hook)" ]] && ok "hook: a standalone task never advances" || ko "hook: task phase"
+out="$($SRC/scripts/cleanup-feature.sh solo)"
+[[ ! -d "$SW" ]] && ! git show-ref -q --verify refs/heads/feat/20-solo && ok "cleanup task: merged standalone task removed" || ko "solo task: $out"
+git show-ref -q --verify refs/heads/main && [[ "$out" != *"branch main"* ]] && ok "cleanup task: the base branch is never removed" || ko "solo base: $out"
+[[ ! -d "$SEV" ]] && ! git show-ref -q --verify refs/heads/feat/20-solo-evidence && ok "cleanup task: the task's evidence branch removed" || ko "solo evidence: $out"
+[[ ! -d $W/solo ]] && ok "cleanup task: runtime folder with its plan removed" || ko "solo runtime: $out"
 
 done_tests

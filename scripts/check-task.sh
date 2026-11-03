@@ -40,6 +40,12 @@ for r in "$base" "$remote/$base"; do
   git rev-parse --verify -q "$r^{commit}" >/dev/null && { base_ref="$r"; break; }
 done
 [[ -n "$base_ref" ]] || { echo "check-task: base branch $base not found (locally or as $remote/$base)" >&2; exit 2; }
+# A local copy behind the remote one (the base branch of a standalone task, cut from <remote>/<base>)
+# would count other commits as the task's: compare with the remote one then.
+if [[ "$base_ref" == "$base" ]] && git rev-parse --verify -q "$remote/$base^{commit}" >/dev/null &&
+  git merge-base --is-ancestor "$base" "$remote/$base" 2>/dev/null; then
+  base_ref="$remote/$base"
+fi
 
 top="$(git rev-parse --show-toplevel)"
 prefix="$(git rev-parse --show-prefix)"
