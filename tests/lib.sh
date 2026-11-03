@@ -9,6 +9,8 @@ T="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/wf-test.XXXXXX")" && pwd -P)"
 [[ "${KEEP:-0}" == 1 ]] && echo "work folder: $T" || trap 'rm -rf "$T"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=t@example.com \
   GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=t@example.com
+# Hooks print their notification instead of showing it.
+export WF_NOTIFY_DRY_RUN=1
 FAILS=0
 ok() { printf 'PASS  %s\n' "$1"; }
 ko() { printf 'FAIL  %s\n' "$1"; FAILS=$((FAILS + 1)); }

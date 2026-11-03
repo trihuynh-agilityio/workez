@@ -13,10 +13,12 @@ git remote add origin "$T/remote.git"
 seed() { git --git-dir="$T/remote.git" fetch -q "$T/app" "+$1:$1"; git fetch -q origin "$1" 2>/dev/null; }
 seed main
 W=.claude/workflow
-hook() { echo "{\"stop_hook_active\": ${1:-false}}" | bash $SRC/hooks/next-phase.sh; }
+# The notification it runs on an allowed stop goes to $T/notify.out.
+hook() { echo "{\"stop_hook_active\": ${1:-false}}" | bash $SRC/hooks/next-phase.sh 2>"$T/notify.out"; }
 
 # ---- next-phase.sh ----
 [[ -z "$(hook)" ]] && ok "hook: no state, stop allowed" || ko "hook: no state"
+[[ "$(head -n 1 "$T/notify.out")" == "app: finished" ]] && ok "hook: an allowed stop notifies" || ko "hook: notify: $(cat "$T/notify.out")"
 
 mkdir -p $W/alpha $W/beta $W/gamma
 echo '{"feature":"alpha","phase":"build","status":"waiting_review","handed_off":true}' >$W/alpha/state.json
@@ -27,6 +29,7 @@ sleep 1
 echo '{"feature":"gamma","phase":"design","status":"done","handed_off":false}' >$W/gamma/state.json
 out="$(hook | jq -r .reason)"
 [[ "$out" == *'"beta"'*design-feature* ]] && ok "hook: oldest ready feature first (beta -> design-feature)" || ko "hook: first: $out"
+[[ ! -s "$T/notify.out" ]] && ok "hook: a hand-off does not notify" || ko "hook: hand-off notified: $(cat "$T/notify.out")"
 [[ "$(jq .handed_off $W/beta/state.json)" == true ]] && ok "hook: beta marked handed off" || ko "hook: mark"
 [[ "$(jq .handed_off $W/gamma/state.json)" == false ]] && ok "hook: gamma untouched" || ko "hook: gamma touched"
 [[ -z "$(hook true)" ]] && ok "hook: stop_hook_active lets the stop through" || ko "hook: stop_hook_active"
