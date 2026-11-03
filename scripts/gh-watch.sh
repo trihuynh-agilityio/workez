@@ -5,13 +5,17 @@
 # Output, one line each:
 #   STATE <branch> <OPEN|MERGED|CLOSED|NONE> <pr|-> <issue>     the most recent PR of the branch
 #   FEEDBACK <pr> <id> <author>                                  new feedback on an OPEN PR
+#   CHECKS <pr> checks-<head sha>                                a failed check on an OPEN PR's head
+#   CONFLICT <pr> conflict-<head sha>                            an OPEN PR that conflicts with its base
 # Feedback is filtered as github-ops get-pr-feedback does: only github.feedback_authors from
 # .claude/workflow.json; ids in --handled, bodies with <!-- workflow-reply -->, bodies that are only
 # github.review_trigger and APPROVED reviews with an empty body are dropped.
 # --settled: PR numbers whose MERGED or CLOSED state the workflow already labelled.
-# --no-feedback: states only (the final PR watch), so new comments never wake an agent.
+# CHECKS and CONFLICT ids name the PR's head commit (12 characters), so --handled drops them until
+# a new push; pending checks and an UNKNOWN mergeable state print nothing.
+# --no-feedback: states only (the final PR watch), so new comments, checks or conflicts never wake an agent.
 # Exit: 0 nothing new, 10 a MERGED or CLOSED PR not in --settled (wins over 20),
-#       20 new feedback, 2 usage or gh error.
+#       20 new feedback, a failed check or a conflict, 2 usage or gh error.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
 repo="$(cfg .github.repo)"
@@ -41,6 +45,13 @@ keep='.[]
   | select(((.state // "") == "APPROVED" and ($b | test("^\\s*$"))) | not)
   | "\(.id) \(.user.login)"'
 
+# Prints "<head sha> <mergeable> <failed check count>". A check failed when a check run concluded
+# FAILURE, TIMED_OUT, STARTUP_FAILURE or ACTION_REQUIRED, or a status context is FAILURE or ERROR;
+# CANCELLED is left out, since a newer push cancels the older runs.
+head_q='"\(.headRefOid[0:12]) \(.mergeable) \([.statusCheckRollup[]?
+  | select(((.conclusion // .state // "") as $c
+    | ["FAILURE","TIMED_OUT","STARTUP_FAILURE","ACTION_REQUIRED","ERROR"] | index($c)))] | length)"'
+
 settled_new=0; feedback_new=0
 for pair in "${pairs[@]}"; do
   branch="${pair%:*}"; issue="${pair##*:}"
@@ -58,6 +69,16 @@ for pair in "${pairs[@]}"; do
     MERGED | CLOSED) [[ "$settled" == *",$pr,"* ]] || settled_new=1; continue ;;
   esac
   ((feedback)) || continue
+
+  head="$(gh pr view "$pr" --repo "$repo" --json headRefOid,mergeable,statusCheckRollup -q "$head_q")" \
+    || { echo "gh-watch: gh pr view failed for $pr" >&2; exit 2; }
+  read -r sha mergeable failed <<<"$head"
+  if ((${failed:-0} > 0)) && [[ "$handled" != *",checks-$sha,"* ]]; then
+    echo "CHECKS $pr checks-$sha"; feedback_new=1
+  fi
+  if [[ "$mergeable" == CONFLICTING && "$handled" != *",conflict-$sha,"* ]]; then
+    echo "CONFLICT $pr conflict-$sha"; feedback_new=1
+  fi
 
   for path in "pulls/$pr/reviews" "pulls/$pr/comments" "issues/$pr/comments"; do
     items="$(gh api "repos/$repo/$path" --paginate -q "$keep")" \

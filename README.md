@@ -40,7 +40,7 @@
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
 3. **Plan the work** – `plan.md`: waves of at most two tasks, size limits, acceptance-criteria coverage, then one GitHub sub-issue per task.
-4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, and fixes PR feedback.
+4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
 The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
