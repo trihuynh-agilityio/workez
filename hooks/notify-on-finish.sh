@@ -7,6 +7,13 @@
 #               transcript), as one line without Markdown; a generic line when neither has text.
 #             Notification (permission_prompt, elicitation_dialog): the hook's "message".
 #             PreToolUse AskUserQuestion: the first question; ExitPlanMode: a fixed line.
+# Only for a session that ran a workez skill (a Skill call or a /workez: command in its transcript), so
+# other sessions in the same project stay quiet. At most one notification per session every
+# WF_NOTIFY_COOLDOWN seconds (default 15), so one wait that fires two events (a question and its
+# permission prompt) notifies once.
+# Off when "notify" is false in .claude/workflow.local.json (for you, in this project), else in
+# .claude/workflow.json (for everyone). WF_NOTIFY=on or off (also 1/0, true/false, yes/no) wins over both:
+# set it in the "env" of ~/.claude/settings.json for every project.
 # Never blocks; silently does nothing off macOS. WF_NOTIFY_DRY_RUN=1 prints the three lines instead (for tests).
 
 [[ -n "${WF_NOTIFY_DRY_RUN:-}" ]] || command -v osascript >/dev/null 2>&1 || exit 0
@@ -14,6 +21,13 @@ input="$(cat)"
 # Only in projects that use the workflow (a .claude/workflow.json); needs jq.
 command -v jq >/dev/null 2>&1 || exit 0
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/hook-env.sh" || exit 0
+if [[ -n "${WF_NOTIFY:-}" ]]; then
+  [[ "$(tr '[:upper:]' '[:lower:]' <<<"$WF_NOTIFY")" =~ ^(off|0|false|no)$ ]] && exit 0
+else
+  [[ "$(wf_personal notify)" == false ]] && exit 0
+fi
+transcript="$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)"
+[[ -f "$transcript" ]] && grep -Eq '"skill": ?"workez:|<command-name>/workez:' "$transcript" 2>/dev/null || exit 0
 
 case "$(jq -r '.hook_event_name // "Stop"' <<<"$input" 2>/dev/null)" in
   Notification)
@@ -33,14 +47,24 @@ case "$(jq -r '.hook_event_name // "Stop"' <<<"$input" 2>/dev/null)" in
     why="finished"
     msg="$(jq -r '.last_assistant_message // empty' <<<"$input" 2>/dev/null)"
     if [[ -z "$msg" ]]; then
-      transcript="$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)"
-      [[ -f "$transcript" ]] && msg="$(tail -n 200 "$transcript" | jq -rs '
+      msg="$(tail -n 200 "$transcript" | jq -rs '
         [.[] | select(.type == "assistant") | .message.content
           | if type == "string" then . else ([.[]? | select(.type == "text") | .text] | join("\n")) end
           | select(length > 0)] | last // empty' 2>/dev/null)"
     fi
     ;;
 esac
+
+# The cooldown: a stamp per session; a recent one means this wait was already notified.
+session="$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null)"
+if [[ -n "$session" ]]; then
+  stamp="${TMPDIR:-/tmp}/workez-notify/${session//[^A-Za-z0-9_-]/}"
+  now="$(date +%s)"
+  last="$(cat "$stamp" 2>/dev/null)"
+  [[ "$last" =~ ^[0-9]+$ ]] && ((now - last < ${WF_NOTIFY_COOLDOWN:-15})) && exit 0
+  mkdir -p "$(dirname "$stamp")" 2>/dev/null && printf '%s' "$now" >"$stamp" 2>/dev/null
+fi
+
 # One line: drop code blocks, Markdown marks and link targets, squeeze the spaces, cut to 220 characters
 # (counted by jq, so a multi-byte character is never split).
 msg="$(printf '%s\n' "$msg" | awk '/^[[:space:]]*```/ { code = !code; next } !code' | sed -E \

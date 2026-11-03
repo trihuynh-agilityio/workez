@@ -14,6 +14,11 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 - The build watches (`build-feature`, `build-task`) now see failed CI checks and merge conflicts on an open task PR. A failed check goes through the same triage and fix rounds as review feedback, with its CI log; a conflict is reported to you, never resolved by the workflow. `gh-watch.sh` prints `CHECKS` and `CONFLICT` lines, and `github-ops` has a `get-pr-checks` operation.
 - `setup-project.sh` allows `gh api repos/<repo>/actions/jobs/*`, to read a failed job's log. Rerun it in projects already set up.
+- A `notify` key turns the notifications off: `false` in `workflow.json` for everyone, or in the new, gitignored `.claude/workflow.local.json` for yourself (it wins). `workflow.local.json` holds only personal keys; `doctor.sh` warns about any other and about the file being committed. The `WF_NOTIFY` env var (`on`/`off`) wins over both, for every project. Rerun `setup-project.sh` to gitignore `workflow.local.json`.
+
+### Fixed
+
+- Notifications come only from sessions that ran a workez skill, so other Claude sessions in the same project stay quiet, and at most one per session every 15 seconds (`WF_NOTIFY_COOLDOWN`), so one wait that fires two events notifies once.
 
 ## [0.2.0] - 2026-11-03
 
