@@ -120,6 +120,10 @@ Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: t
 
 ## Status
 
+<p align="center">
+  <img src="docs/assets/status.gif" alt="Running status.sh --short lists five features with phase, status, who acts next and what to do, those waiting on you first; then status.sh login-page shows that feature's tasks, PR states and watch" width="880">
+</p>
+
 ```bash
 bash <plugin>/scripts/status.sh [--short] [feature]
 ```
