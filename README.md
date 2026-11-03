@@ -16,6 +16,21 @@
   <img src="docs/assets/demo-plan.gif" alt="Running /workez:plan-feature: a grilling question, the intent written and approved, the feature issue and branch, then the Stop hook starting Phase 2" width="880">
 </p>
 
+## Contents
+
+- [How it works](#how-it-works)
+- [Saving tokens](#saving-tokens)
+- [Commits and branches](#commits-and-branches)
+- [Requirements](#requirements)
+- [Install](#install)
+- [Check](#check)
+- [Status](#status)
+- [Notifications](#notifications)
+- [More](#more)
+- [Developing](#developing)
+- [Releasing](#releasing)
+- [License](#license)
+
 ## How it works
 
 <p align="center">
@@ -117,6 +132,26 @@ It writes `.claude/workflow.json` (repository, branches, commands, formatters, d
 ```
 
 Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
+
+## Status
+
+<p align="center">
+  <img src="docs/assets/status.gif" alt="Running status.sh --short lists five features with phase, status, who acts next and what to do, those waiting on you first; then status.sh login-page shows that feature's tasks, PR states and watch" width="880">
+</p>
+
+```bash
+bash <plugin>/scripts/status.sh [--short] [feature]
+```
+
+Run it from a shell inside the project: no Claude session, no tokens. It reads every `.claude/workflow/*/state.json` and the `pr-states.tsv` next to it, and prints per feature (and `build-task`) its phase and status, who acts next (`you` or `Claude`) and what to do, the task statuses, the PR states as last recorded, and the session watch. It never calls GitHub, so PR states are as fresh as the last build or verify run. Features waiting on you come first, and the last line names them. `--short` prints one line per feature: feature, phase / status, who and next.
+
+## Notifications
+
+<p align="center">
+  <img src="docs/assets/notify.gif" alt="Three macOS notifications stack up one by one: my-app needs your answer, my-app needs your approval, my-app finished, each with the branch and a one-line message" width="480">
+</p>
+
+On macOS, `hooks/notify-on-finish.sh` shows a notification whenever Claude needs you, so you can leave the session running in the background. The title is the project folder and why (`needs your answer`, `needs your approval` or `finished`), the subtitle the current branch, and the message the question, the permission request or the start of Claude's last reply. A phase hand-off from the `Stop` hook never notifies, so you hear from it only when Claude really stops. Off macOS it does nothing.
 
 ## More
 
