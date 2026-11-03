@@ -1,6 +1,6 @@
 ---
 name: build-task
-description: Use when asked to build ONE small, standalone change (a tweak, a small addition, a refactor) without the whole feature workflow. Writes a one-task plan for approval, opens a task issue, runs the task pipeline (implementer, review loop, UI check, full test suite), opens one PR straight to the base branch, then watches it until it is merged. Run with a description of the change, an existing issue as `#<n>`, or the task's slug to resume. A change that needs more than one task goes to plan-feature.
+description: Use when asked to build ONE small, standalone change (a tweak, a small addition, a refactor) without the whole feature workflow. Writes a one-task plan and shows it to the user for approval before anything else happens, then opens a task issue, runs the task pipeline (implementer, review loop, UI check, full test suite), opens one PR straight to the base branch, then watches it until it is merged. Run with a description of the change, an existing issue as `#<n>`, or the task's slug to resume. A change that needs more than one task goes to plan-feature.
 model: opus
 allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
 ---
@@ -22,7 +22,7 @@ Argument: a description of the change, an existing issue as `#<n>`, or the `<slu
 Stop and tell the user what to do if any fails:
 
 - No feature or task is building: every `<project root>/.claude/workflow/*/state.json` with phase `build` or `task`, other than this task's own, has a status other than `in_progress`. The lanes share their ports and Playwright browsers.
-- For a resume, `.claude/workflow/<slug>/plan.md` exists. Then go to step 6.
+- For a resume, `.claude/workflow/<slug>/plan.md` exists. If its line 2 is still `Status: draft.`, go to step 4: an unapproved plan is never built. Otherwise go to step 5 when its `Issue:` is `pending`, else step 6.
 
 ## 2. Scope
 
@@ -54,7 +54,9 @@ Status: draft.
 
 ## 4. Approval
 
-Show the plan path and the task in a few lines (goal, files, size, UI check or not). Ask with `AskUserQuestion`: approve, or change something. On changes, edit the plan and ask again. Do not continue without a clear approval; then set line 2 to `Status: approved.`. This is the last edit of the plan except the numbers in step 5.
+Nothing has happened yet beyond reading the code and writing the plan: no issue, no branch, no worktree, no code. Keep it that way until the user approves.
+
+Show the user the whole plan as written (it is short: the Request and every field of `T1`), then its path, and point out any choice you made for them in step 2. Ask with `AskUserQuestion`: approve, or change something. On changes, edit the plan, show it again in full and ask again. Do not continue without a clear approval; then set line 2 to `Status: approved.`. This is the last edit of the plan except the numbers in step 5.
 
 ## 5. Issue
 
@@ -76,7 +78,7 @@ Read the state and run `gh-watch.sh <Branch>:<Issue number> --no-feedback` (read
 
 ## 7. Build
 
-Fetch the base first: `git fetch <remote> <base>`. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, and the lane instructions of `${CLAUDE_PLUGIN_ROOT}/skills/build-feature/SKILL.md` step 3 (it reads that file), with these changes for a standalone task:
+Only with plan line 2 `Status: approved.`; otherwise go back to step 4. Fetch the base first: `git fetch <remote> <base>`. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, and the lane instructions of `${CLAUDE_PLUGIN_ROOT}/skills/build-feature/SKILL.md` step 3 (it reads that file), with these changes for a standalone task:
 
 - The implementer cuts the worktree from `<remote>/<base>`, not the local `<base>`.
 - The code reviewer's first round gets `git merge-base <remote>/<base> HEAD` (run in the worktree) as its base commit, so a stale local `<base>` never adds other commits to the review.
