@@ -54,6 +54,16 @@ out="$("$SRC/scripts/check-task.sh" T1 "$T/plan.md" 2>&1)"
 git commit -q --amend -m "feat: add notes"
 out="$("$SRC/scripts/check-task.sh" T1 "$T/plan.md" 2>&1)"
 [[ "$out" == *PASS* ]] && ok "check-task: conventional commit passes" || ko "check-task good commit: $out"
+# A stale local base: the task is cut from the newer origin/main, so the newer commits are not the task's.
+git checkout -q main; git update-ref refs/remotes/origin/main main
+git checkout -q -b tmp-ahead; echo a >other.txt; git add other.txt; git commit -q -m "feat: add other"
+git update-ref refs/remotes/origin/main HEAD; git checkout -q main; git branch -q -D tmp-ahead
+git checkout -q -b feat/13-notes origin/main
+echo hi >notes.txt; git add notes.txt; git commit -q -m "feat: add notes"
+sed 's#feat/12-notes#feat/13-notes#' "$T/plan.md" >"$T/plan2.md"
+out="$("$SRC/scripts/check-task.sh" T1 "$T/plan2.md" 2>&1)"
+[[ "$out" == *PASS*"against origin/main"* ]] && ok "check-task: a stale local base compares with the remote one" || ko "check-task stale base: $out"
+git checkout -q feat/12-notes
 
 # 4. setup-project.sh and doctor.sh with conventions: a push rule per type, naming checked.
 bash "$SRC/scripts/setup-project.sh" >/dev/null

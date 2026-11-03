@@ -7,7 +7,8 @@
 #   write-plan / done / handed_off=false -> create-task-issues   (asks the user to approve the plan)
 #   tasks      / done / handed_off=false -> build-feature        (runs after the plan approval, no user command)
 #   build      / done / handed_off=false -> verify-feature       (build-feature sets this only after every task PR is merged and the final PR is open)
-# Anything else (build in progress, waiting_review, blocked, verify, done) never advances.
+# Anything else (build in progress, waiting_review, blocked, verify, done, and a standalone build-task
+# with phase task) never advances.
 # With several features ready, the one whose state changed first goes now, the next at the next stop.
 # Appends one line per run to .claude/workflow/hook.log, cut back to its last 500 lines once it passes
 # 1000. Any problem allows the stop.

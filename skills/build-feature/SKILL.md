@@ -22,7 +22,7 @@ Argument: `<feature-name>`, the folder under `<docs_dir>`.
 Stop and tell the user what to do if any fails:
 
 - plan.md line 2 is `Status: approved.` and no task has `Issue: pending`; otherwise: run `/workez:create-task-issues <feature-name>`.
-- No other feature is building: every other `<project root>/.claude/workflow/*/state.json` with phase `build` has a status other than `in_progress`. The lanes share their ports and Playwright browsers, so only one feature runs lanes at a time; a feature in `waiting_review` does not count. Otherwise name that feature and stop.
+- No other feature is building: every other `<project root>/.claude/workflow/*/state.json` with phase `build` (or `task`, a standalone `workez:build-task`) has a status other than `in_progress`. The lanes share their ports and Playwright browsers, so only one feature runs lanes at a time; a feature in `waiting_review` does not count. Otherwise name that feature and stop.
 - The integration branch exists. If not, create it from the freshly fetched base, never from a stale local copy or another branch: `git fetch <remote> <base>`, then `git branch --no-track <name> <remote>/<base>`. If it is not on `<remote>` (`git ls-remote --exit-code --heads <remote> <name>`), push it once with `git push -u <remote> <name>`: this is the only push besides task branches, and `workez:create-task-pr` needs the base on GitHub.
 - Bring it up to date locally with a fast-forward fetch, no merge: `git fetch <remote> <name>:<name>`. If that is refused because it is not a fast-forward, stop and report; never force.
 

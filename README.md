@@ -30,6 +30,8 @@
 
 The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
 
+**One small change?** `/workez:build-task <change>` (or `#<issue>`) skips the phases: you approve a one-task plan, and it runs the same pipeline (implementer, review loop, UI check, full test suite) to one PR straight to the base branch, then watches it until you merge.
+
 <p align="center">
   <img src="docs/assets/build-lanes.gif" alt="Two task cards move in parallel through implementer, check-task, review loop, ui-verifier and task PR in lanes A and B" width="880">
 </p>
