@@ -10,6 +10,14 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+
+- `WF_NOTIFY=off` turns the notifications off (set it in the `env` of `~/.claude/settings.json`, or of `.claude/settings.local.json` for one project).
+
+### Fixed
+
+- Notifications come only from sessions that ran a workez skill, so other Claude sessions in the same project stay quiet, and at most one per session every 15 seconds (`WF_NOTIFY_COOLDOWN`), so one wait that fires two events notifies once.
+
 ## [0.2.0] - 2026-11-03
 
 ### Added

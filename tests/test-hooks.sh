@@ -35,11 +35,13 @@ expect 2 $p "git push origin"            # the current branch is dev
 expect 0 $p "git log --grep 'git push origin dev'"
 
 # notify-on-finish.sh, dry run: title, branch, then the last reply as one plain line.
+# It notifies only for a session whose transcript ran a workez skill: $T/wz.jsonl has one.
 n=notify-on-finish.sh
-notify() { bash "$SRC/hooks/$n"; }
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"workez:build-task"}}]}}' >"$T/wz.jsonl"
+notify() { jq --arg t "${TR:-$T/wz.jsonl}" '.transcript_path //= $t' | bash "$SRC/hooks/$n"; }
 out="$(jq -n --arg d "$T/app" '{cwd:$d, last_assistant_message:"## Done\n\n- Added **login** to [auth.ts](src/auth.ts)\n```\nnpm test\n```\n- Tests `pass`"}' | notify)"
 [[ "$out" == $'app: finished\ndev\nDone Added login to auth.ts Tests pass' ]] && ok "$n: summarizes last_assistant_message" || ko "$n: $out"
-printf '%s\n' '{"type":"user","message":{"content":"hi"}}' \
+printf '%s\n' '{"type":"user","message":{"content":"<command-name>/workez:plan-feature</command-name>"}}' \
   '{"type":"assistant","message":{"content":[{"type":"text","text":"Fixed the \"save\" bug."},{"type":"tool_use","name":"Bash"}]}}' \
   '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit"}]}}' >"$T/transcript.jsonl"
 out="$(jq -n --arg d "$T/app" --arg t "$T/transcript.jsonl" '{cwd:$d, transcript_path:$t}' | notify)"
@@ -59,5 +61,25 @@ out="$(jq -n --arg d "$T/app" '{cwd:$d, hook_event_name:"PreToolUse", tool_name:
 [[ "$out" == $'app: needs your answer\ndev\nApprove the plan?' ]] && ok "$n: AskUserQuestion" || ko "$n: $out"
 out="$(jq -n --arg d "$T/app" '{cwd:$d, hook_event_name:"PreToolUse", tool_name:"ExitPlanMode"}' | notify | head -n 1)"
 [[ "$out" == "app: needs your approval" ]] && ok "$n: ExitPlanMode" || ko "$n: $out"
+# Sessions that never ran a workez skill stay quiet.
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"other:workez-like"}}]}}' >"$T/plain.jsonl"
+out="$(jq -n --arg d "$T/app" '{cwd:$d, last_assistant_message:"hi"}' | TR="$T/plain.jsonl" notify)"
+[[ -z "$out" ]] && ok "$n: quiet for a session without a workez skill" || ko "$n: no-workez session notified: $out"
+out="$(jq -n --arg d "$T/app" '{cwd:$d, last_assistant_message:"hi"}' | TR="$T/missing.jsonl" notify)"
+[[ -z "$out" ]] && ok "$n: quiet without a transcript" || ko "$n: no transcript notified: $out"
+for v in off OFF 0 false no; do
+  out="$(jq -n --arg d "$T/app" '{cwd:$d, last_assistant_message:"hi"}' | WF_NOTIFY=$v notify)"
+  [[ -z "$out" ]] && ok "$n: WF_NOTIFY=$v turns it off" || ko "$n: WF_NOTIFY=$v notified: $out"
+done
+[[ -n "$(jq -n --arg d "$T/app" '{cwd:$d}' | WF_NOTIFY=on notify)" ]] && ok "$n: WF_NOTIFY=on notifies" || ko "$n: WF_NOTIFY=on"
+# The cooldown: one notification per session within WF_NOTIFY_COOLDOWN seconds; other sessions are apart.
+export TMPDIR="$T/tmp"; mkdir -p "$TMPDIR"
+ask() { jq -n --arg d "$T/app" --arg s "$1" '{cwd:$d, session_id:$s, hook_event_name:"PreToolUse", tool_name:"AskUserQuestion",
+  tool_input:{questions:[{question:"Q?"}]}}' | notify | head -n 1; }
+[[ "$(ask s1)" == "app: needs your answer" ]] && ok "$n: first notification of a session" || ko "$n: cooldown first"
+out="$(jq -n --arg d "$T/app" '{cwd:$d, session_id:"s1", hook_event_name:"Notification", message:"perm"}' | notify)"
+[[ -z "$out" ]] && ok "$n: a second event of the same wait is dropped" || ko "$n: cooldown repeat: $out"
+[[ "$(ask s2)" == "app: needs your answer" ]] && ok "$n: another session still notifies" || ko "$n: cooldown other session"
+[[ "$(WF_NOTIFY_COOLDOWN=0 ask s1)" == "app: needs your answer" ]] && ok "$n: notifies again after the cooldown" || ko "$n: cooldown expiry"
 
 done_tests

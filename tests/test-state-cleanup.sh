@@ -13,8 +13,9 @@ git remote add origin "$T/remote.git"
 seed() { git --git-dir="$T/remote.git" fetch -q "$T/app" "+$1:$1"; git fetch -q origin "$1" 2>/dev/null; }
 seed main
 W=.claude/workflow
-# The notification it runs on an allowed stop goes to $T/notify.out.
-hook() { echo "{\"stop_hook_active\": ${1:-false}}" | bash $SRC/hooks/next-phase.sh 2>"$T/notify.out"; }
+# The notification it runs on an allowed stop goes to $T/notify.out (the transcript ran a workez skill).
+echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"workez:plan-feature"}}]}}' >"$T/wz.jsonl"
+hook() { echo "{\"stop_hook_active\": ${1:-false}, \"transcript_path\": \"$T/wz.jsonl\"}" | bash $SRC/hooks/next-phase.sh 2>"$T/notify.out"; }
 
 # ---- next-phase.sh ----
 [[ -z "$(hook)" ]] && ok "hook: no state, stop allowed" || ko "hook: no state"
