@@ -6,6 +6,9 @@
 #       when the final PR is merged: every task as above, the verify, evidence and integration-branch
 #       worktrees, the local integration branch, .claude/workflow/<feature>/, <docs_dir>/<feature>/evidence/
 #       and reviews/, and the Playwright output when no other feature is running.
+# A standalone task (workez:build-task) has its plan in .claude/workflow/<feature>/plan.md and its
+# PR target is the base branch: the base branch and its worktree are never removed, and its
+# evidence branch is <task branch>-evidence.
 # A worktree is removed only if it has no uncommitted or untracked changes, a local task branch only
 # if the integration branch or the base contains it, and the local integration branch only if the
 # base contains it (merged with a merge commit or fast-forward; a squash merge leaves it KEPT).
@@ -31,8 +34,8 @@ base="$(cfg .branches.base)"
 docs="$WF_PROJECT/$(cfg .docs_dir)/$feature"
 runtime="$WF_PROJECT/.claude/workflow"
 plans=()
-for f in "$docs/plan.md" "$docs/plan-fix.md"; do [[ -f "$f" ]] && plans+=("$f"); done
-((${#plans[@]})) || { echo "cleanup-feature: no plan in $docs" >&2; exit 2; }
+for f in "$docs/plan.md" "$docs/plan-fix.md" "$runtime/$feature/plan.md"; do [[ -f "$f" ]] && plans+=("$f"); done
+((${#plans[@]})) || { echo "cleanup-feature: no plan in $docs or $runtime/$feature" >&2; exit 2; }
 
 # Tasks: "<id> <branch>", and the integration branch from the first PR target.
 tasks="$(awk '
@@ -106,14 +109,20 @@ done <<<"$tasks"
 if [[ -d "$WF_TOP/.claude/worktrees/verify-$feature" ]]; then
   act "verify worktree" "$WF_HOME/scripts/verify-worktree.sh" remove "$feature"
 fi
+# A standalone task targets the base branch (or another protected one): never remove it.
+standalone=0
+[[ "$integration" == "$base" ]] && standalone=1
+jq -e --arg b "$integration" '.branches.protected // [] | index($b)' "$WF_CONFIG" >/dev/null 2>&1 && standalone=1
 # The local integration branch, once the final PR is merged into the base.
-if drop_worktree "$(wf_worktree_path "$integration")" &&
+if ((standalone)); then :
+elif drop_worktree "$(wf_worktree_path "$integration")" &&
   git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$integration"; then
   if git -C "$WF_TOP" merge-base --is-ancestor "$integration" "$base_ref" 2>/dev/null; then
     act "branch $integration" git -C "$WF_TOP" branch -D "$integration"
   else say KEPT "branch $integration" "not contained in $base_ref: final PR not merged, or squash-merged"; fi
 fi
 evidence_branch="$integration-evidence"
+((standalone)) && evidence_branch="$(head -1 <<<"$tasks" | cut -d' ' -f2)-evidence"
 if drop_worktree "$(wf_worktree_path "$evidence_branch")" &&
   git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$evidence_branch"; then
   # The evidence branch is only a local copy of what was pushed; keep it if it has unpushed commits.

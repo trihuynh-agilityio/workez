@@ -16,7 +16,7 @@ You review one task. You are read-only: never edit, create or delete a file, nev
 ## What to read
 
 - The task's block in the plan (from `## T<n>:` to the next `## `): Goal, Covers, Files, Tests, Verify, Done when.
-- The spec requirements it covers (same folder as the plan) and the Design bullets about what it touches.
+- The spec requirements it covers (same folder as the plan) and the Design bullets about what it touches. A standalone task (the plan starts with `# Task: `) has no spec: judge it against the plan's `## Request` section.
 - The standards files the plan lists, and `CLAUDE.md` conventions. For a change that touches authentication or stored data, read the project's security standard explicitly and check against it; if the project has none, say that once.
 - The diff, and the files it touches as needed. Do not read the whole repository.
 

@@ -137,4 +137,23 @@ out="$($SRC/scripts/cleanup-feature.sh demo)"
 git show-ref -q --verify refs/heads/feat/11-sq && [[ "$out" == *"KEPT branch feat/11-sq"*"squash"* ]] \
   && ok "cleanup feature: squash-merged integration branch kept" || ko "squash: $out"
 
+# A standalone task (build-task): the plan is in the runtime folder and the PR target is the base.
+# Merged into main: the task goes, main and its runtime stay apart, the task's evidence branch goes.
+git branch -q feat/20-solo main
+SW="$(wt feat/20-solo)"; git worktree add -q "$SW" feat/20-solo
+echo solo >"$SW/solo.txt"; git -C "$SW" add -A; git -C "$SW" commit -q -m solo
+git merge -q --no-ff -m "Merge solo" feat/20-solo; seed main
+SEV="$(wt feat/20-solo-evidence)"
+git worktree add -q --orphan -b feat/20-solo-evidence "$SEV"; echo s >"$SEV/s.png"; git -C "$SEV" add -A; git -C "$SEV" commit -q -m shots
+seed feat/20-solo-evidence
+mkdir -p $W/solo
+printf '# Task: Solo\nStatus: approved.\n\n## T1: solo  [ ]\n- **Branch**: `feat/20-solo`\n- **PR target**: `main`\n' >$W/solo/plan.md
+echo '{"feature":"solo","phase":"task","status":"done","handed_off":true}' >$W/solo/state.json
+[[ -z "$(hook)" ]] && ok "hook: a standalone task never advances" || ko "hook: task phase"
+out="$($SRC/scripts/cleanup-feature.sh solo)"
+[[ ! -d "$SW" ]] && ! git show-ref -q --verify refs/heads/feat/20-solo && ok "cleanup task: merged standalone task removed" || ko "solo task: $out"
+git show-ref -q --verify refs/heads/main && [[ "$out" != *"branch main"* ]] && ok "cleanup task: the base branch is never removed" || ko "solo base: $out"
+[[ ! -d "$SEV" ]] && ! git show-ref -q --verify refs/heads/feat/20-solo-evidence && ok "cleanup task: the task's evidence branch removed" || ko "solo evidence: $out"
+[[ ! -d $W/solo ]] && ok "cleanup task: runtime folder with its plan removed" || ko "solo runtime: $out"
+
 done_tests
