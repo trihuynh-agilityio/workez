@@ -58,7 +58,7 @@ cfg() { jq -r "$1 // empty" "$WF_CONFIG"; }
 # The keys workflow.local.json may set: personal choices only, never the team's rules (branches,
 # blocked_commands, conventions ...), so nobody can loosen those on their own machine. doctor.sh warns
 # about any other key there, and nothing reads it.
-WF_PERSONAL_KEYS=(notify)
+WF_PERSONAL_KEYS=(notify office)
 
 # wf_personal <key>: a personal key's raw value, from workflow.local.json, else workflow.json, else
 # nothing. A false value comes out as "false" (unlike cfg, whose // drops it).
