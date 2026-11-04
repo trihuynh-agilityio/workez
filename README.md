@@ -145,6 +145,27 @@ bash <plugin>/scripts/status.sh [--short] [feature]
 
 Run it from a shell inside the project: no Claude session, no tokens. It reads every `.claude/workflow/*/state.json` and the `pr-states.tsv` next to it, and prints per feature (and `build-task`) its phase and status, who acts next (`you` or `Claude`) and what to do, the task statuses, the PR states as last recorded, and the session watch. It never calls GitHub, so PR states are as fresh as the last build or verify run. Features waiting on you come first, and the last line names them. `--short` prints one line per feature: feature, phase / status, who and next.
 
+## Office
+
+```bash
+bash <plugin>/scripts/office.sh          # or /workez:office in Claude Code
+```
+
+Opens a live page of the workflow drawn as an office, from a shell inside the project. It costs no tokens and the page never calls a model. Each room is a step, in workflow order:
+
+- Plan, a brainstorm with you
+- Design
+- Implementation plan
+- Tasks
+- Build, with one bay per feature and lanes A and B
+- Verify
+- Done
+- Your office
+
+Each feature, and while it builds each task, is a robot standing in the room of its step. Its colour is the agent at work, its eyes show whether it works, waits, rests, failed or finished, and it holds what the step produces (intent, spec, plan, code, diff, PR). Approvals and PR merges gather in Your office, and the "!" button lists everything that waits on you. Hover a robot for its details.
+
+The page follows the hooks' event log, the state files and the plans as they change. `office.sh` reuses the server when it already runs. `office.sh stop` stops it, and it also stops by itself after 30 idle minutes. `office.sh --demo` shows sample data. It needs Node 18 or newer, like the UI checks. To stop recording the events for yourself, set `"office": false` in `.claude/workflow.local.json`.
+
 ## Notifications
 
 <p align="center">
