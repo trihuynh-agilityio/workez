@@ -176,13 +176,16 @@ This repository is both the plugin and its marketplace (`.claude-plugin/plugin.j
 
 ## Releasing
 
-Versions follow semantic versioning (what counts as major, minor or patch is at the top of the changelog). Installed copies update only when `version` in `.claude-plugin/plugin.json` changes, so every release bumps it:
+Versions follow semantic versioning (what counts as major, minor or patch is at the top of the changelog). Installed copies update only when `version` in `.claude-plugin/plugin.json` changes on `main`, so every release bumps it.
 
-```bash
-tools/release.sh patch --dry-run   # or minor, major, X.Y.Z: shows the notes that will be released
-tools/release.sh patch             # moves Unreleased under the new version, sets plugin.json
-git commit -am "Release v0.1.1" && git tag -a v0.1.1 -m "v0.1.1" && git push --follow-tags
-```
+Run `/release` in Claude Code from this repository (optionally with `major`, `minor`, `patch` or `X.Y.Z`); it is a project skill in `.claude/skills/release`. It proposes the bump from the `Unreleased` notes, then:
+
+1. runs `tools/release.sh <bump>` on a `chore/release-X.Y.Z` branch and opens a PR into `dev`;
+2. opens the `dev` → `main` PR;
+3. tags `main` with `vX.Y.Z`;
+4. creates the GitHub Release from the changelog section, marked Latest.
+
+You merge both PRs; run `/release` again after each merge and it picks up where it stopped. `tools/release.sh <bump> --dry-run` alone shows the notes that would be released.
 
 Users then get it with `/plugin marketplace update workez`. CI runs `tools/check-version.sh`, which fails when `plugin.json` has a version without its own changelog section.
 

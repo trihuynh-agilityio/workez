@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cuts a release: moves the Unreleased notes of CHANGELOG.md under a new version heading, updates the
 # compare links, and sets "version" in .claude-plugin/plugin.json. It never commits, tags or pushes;
-# it prints those commands for you.
+# the release skill (.claude/skills/release) does the rest.
 #   tools/release.sh major|minor|patch|X.Y.Z [--dry-run]
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,9 +41,9 @@ if ((dry)); then
   echo "== $current -> $next ($today)"; echo "$notes"; exit 0
 fi
 printf '%s\n' "$new_log" >"$log"
-tmp="$(mktemp)"; jq --arg v "$next" '.version = $v' "$manifest" >"$tmp" && mv "$tmp" "$manifest"
+# Only the version line changes; jq would reformat the whole file.
+tmp="$(mktemp)"; sed -E "s/(\"version\": *\")[^\"]*\"/\1$next\"/" "$manifest" >"$tmp" && cat "$tmp" >"$manifest" && rm -f "$tmp"
+[[ "$(jq -r .version "$manifest")" == "$next" ]] || { echo "release: could not set version in plugin.json" >&2; exit 1; }
 "$root/tools/check-version.sh" >/dev/null
-echo "Released $current -> $next in CHANGELOG.md and .claude-plugin/plugin.json. Next:"
-echo "  git commit -am \"Release v$next\""
-echo "  git tag -a v$next -m \"v$next\""
-echo "  git push --follow-tags"
+echo "Released $current -> $next in CHANGELOG.md and .claude-plugin/plugin.json."
+echo "Next: commit, PR into dev, then dev into main, then tag main (the release skill does it)."
