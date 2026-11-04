@@ -25,15 +25,21 @@ done < <(jq -r '.blocked_commands // [] | .[] | "\(.pattern)\t\(.message)"' "$WF
 protected="$(cfg '.branches.protected | join("|")')"
 protected="${protected:-$(cfg .branches.base)}"
 
-# Git: never force-push, never push to or merge on a protected branch
+# Git: never force-push, never push to a protected branch, never merge on one.
+# A push is judged by the branch it pushes, not by the branch checked out here: pushing
+# feat/1-x while this checkout is on main is fine (block-push-protected.sh checks every
+# destination, and a bare `git push` there means the current branch).
 matches 'git[[:space:]]+push([[:space:]]+[^;&|]*)?[[:space:]](--force|--force-with-lease|-f)([[:space:]]|$)' \
   && block "force push is not allowed."
 matches "git[[:space:]]+push([[:space:]]+[^;&|]*)?[[:space:]:](HEAD:)?(refs/heads/)?($protected)([[:space:]]|\$)" \
   && block "never push to a protected branch ($protected)."
-if matches 'git[[:space:]]+(push|merge)([[:space:]]|$)'; then
-  current="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+if matches 'git[[:space:]]+merge([[:space:]]|$)'; then
+  cwd="$(jq -r '.cwd // empty' <<<"$input")"
+  # symbolic-ref also names an unborn branch.
+  if [[ -n "$cwd" && -d "$cwd" ]]; then current="$(git -C "$cwd" symbolic-ref -q --short HEAD 2>/dev/null)"
+  else current="$(git symbolic-ref -q --short HEAD 2>/dev/null)"; fi
   [[ -n "$current" ]] && grep -Eqx -- "$protected" <<<"$current" \
-    && block "currently on $current; never merge or push on a protected branch."
+    && block "currently on $current; never merge on a protected branch."
 fi
 
 # Destructive operations

@@ -120,6 +120,31 @@ else ko "dev-servers: $out"; fi
 bash $SRC/scripts/dev-servers.sh stop A >/dev/null
 lsof -ti :5391 -sTCP:LISTEN >/dev/null && ko "dev-servers: port still busy" || ok "dev-servers: stopped"
 
+# Two features building at the same time (two sessions): each on its own port slot and state folder,
+# and stopping one leaves the other running.
+mkdir -p .claude/workflow/f-one .claude/workflow/f-two
+out1="$(bash $SRC/scripts/dev-servers.sh start A "$WT" f-one 2>&1)"
+out2="$(bash $SRC/scripts/dev-servers.sh start A "$WT" f-two 2>&1)"
+[[ "$out1" == *"APP_URL=http://localhost:5391/"* && "$out2" == *"APP_URL=http://localhost:5401/"* ]] \
+  && curl -sf http://localhost:5391/ >/dev/null && curl -sf http://localhost:5401/ >/dev/null \
+  && ok "dev-servers: two features run side by side (slot 0: 5391, slot 1: 5401)" || ko "dev-servers parallel: $out1 | $out2"
+[[ "$(cat .claude/workflow/lane-slots/0)" == f-one && "$(cat .claude/workflow/lane-slots/1)" == f-two ]] \
+  && ok "dev-servers: slots recorded per feature" || ko "dev-servers slots: $(ls .claude/workflow/lane-slots)"
+[[ "$(bash $SRC/scripts/dev-servers.sh start A "$WT" f-two 2>&1)" == *"5401 is already in use"* ]] \
+  && ok "dev-servers: a feature keeps its slot on the next start" || ko "dev-servers: slot not kept"
+bash $SRC/scripts/dev-servers.sh stop A f-one >/dev/null
+! lsof -ti :5391 -sTCP:LISTEN >/dev/null && curl -sf http://localhost:5401/ >/dev/null \
+  && ok "dev-servers: stopping one feature leaves the other running" || ko "dev-servers: stop hit the other feature"
+bash $SRC/scripts/dev-servers.sh stop A f-two >/dev/null
+! lsof -ti :5401 -sTCP:LISTEN >/dev/null && ok "dev-servers: second feature stopped" || ko "dev-servers: 5401 still busy"
+rm -rf .claude/workflow/f-one
+mkdir -p .claude/workflow/f-three
+[[ "$(bash -c 'source $SRC/scripts/lib/config.sh && wf_lane_slot f-three')" == 0 ]] \
+  && ok "dev-servers: a slot whose feature was cleaned up is reused" || ko "dev-servers: stale slot not reused"
+[[ "$(bash -c 'source $SRC/scripts/lib/config.sh && wf_lane_vars A 2')" == "app_port=5411" ]] \
+  && ok "lib: wf_lane_vars moves ports by slot * step" || ko "lib: lane vars $(bash -c 'source $SRC/scripts/lib/config.sh && wf_lane_vars A 2')"
+rm -rf .claude/workflow
+
 # 6. Blocking hooks with this config.
 h() { jq -n --arg c "$1" --arg d "$T/app" '{tool_input:{command:$c},cwd:$d}' | bash "$SRC/hooks/$2" >/dev/null 2>&1; echo $?; }
 [[ "$(h 'make deploy' block-forbidden-command.sh)" == 2 ]] && ok "hook: project rule from blocked_commands" || ko "hook: blocked_commands"

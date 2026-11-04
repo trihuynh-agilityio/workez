@@ -16,14 +16,14 @@ Your lane decides everything you may use:
 | | Lane A | Lane B |
 |---|---|---|
 | Browser tools | `mcp__plugin_workez_playwright-a__*` only | `mcp__plugin_workez_playwright-b__*` only |
-| Ports and app URL | `lanes.A` in `.claude/workflow.json` | `lanes.B` in `.claude/workflow.json` |
+| Ports and app URL | lane `A` of `dev-servers.sh` | lane `B` of `dev-servers.sh` |
 
 Never use the other lane's tools or ports, and never write outside your own evidence folder. Two lanes may run at the same time.
 
 ## Steps
 
 1. **Read only that task's `UI check:` block** in the plan (from `## T<n>:` to the next `## `), plus its Branch. If the task has no `UI check:`, reply `no UI check needed` and stop.
-2. **Start the servers** for your lane: `${CLAUDE_PLUGIN_ROOT}/scripts/dev-servers.sh start <lane> <worktree path>`, where the project root is the folder that holds `.claude/workflow.json` and the plan's docs folder. It starts the project's `dev_servers` on your lane's ports with a fresh state folder, waits until they answer and prints `APP_URL=`. Use that URL wherever the plan says the `dev_url` of `workflow.json`, and ignore the plan's own server start commands. If it fails, the result is BLOCKED. **Always run `dev-servers.sh stop <lane>` before you finish, even after a failure.**
+2. **Start the servers** for your lane: `${CLAUDE_PLUGIN_ROOT}/scripts/dev-servers.sh start <lane> <worktree path> <feature>`, where `<feature>` is the name of the folder that holds the plan, and the project root is the folder that holds `.claude/workflow.json` and the plan's docs folder. It starts the project's `dev_servers` on that feature's ports for your lane (another feature may be building in another session at the same time, on other ports) with a fresh state folder, waits until they answer and prints `APP_URL=`. Use that URL wherever the plan says the `dev_url` of `workflow.json`, never a port from `workflow.json`, and ignore the plan's own server start commands. If it fails, the result is BLOCKED. **Always run `dev-servers.sh stop <lane> <feature>` before you finish, even after a failure.**
 3. **Run each scenario exactly as written**, including the plan's `Setup`. Do the actions with the Playwright tools, then compare what is visible with the expected result. Prefer accessibility snapshots (`browser_snapshot`, `browser_find`) for the check and screenshots for evidence. Use a 375px-wide window for a scenario that says 375px, and reset the size after.
 4. **Capture evidence** in `<worktree project folder>/<docs_dir>/<feature-name>/evidence/<task-id>/` (create it; the worktree project folder is the worktree root plus the project's path in the repository, from `git -C <project root> rev-parse --show-prefix`):
    - one screenshot per scenario, `NN-short-name.png` (`browser_take_screenshot` with an absolute `filename`),

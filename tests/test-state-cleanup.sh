@@ -15,7 +15,10 @@ seed main
 W=.claude/workflow
 # The notification it runs on an allowed stop goes to $T/notify.out (the transcript ran a workez skill).
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"workez:plan-feature"}}]}}' >"$T/wz.jsonl"
-hook() { echo "{\"stop_hook_active\": ${1:-false}, \"transcript_path\": \"$T/wz.jsonl\"}" | bash $SRC/hooks/next-phase.sh 2>"$T/notify.out"; }
+# hook [stop_hook_active] [session]: one Stop of session s1 (or the one given).
+hook() { echo "{\"stop_hook_active\": ${1:-false}, \"session_id\": \"${2:-s1}\", \"transcript_path\": \"$T/wz.jsonl\"}" | bash $SRC/hooks/next-phase.sh 2>"$T/notify.out"; }
+# own <feature> [session]: the owner file claim-feature.sh writes.
+own() { mkdir -p $W/$1; echo "${2:-s1}" >$W/$1/owner; }
 
 # ---- next-phase.sh ----
 [[ -z "$(hook)" ]] && ok "hook: no state, stop allowed" || ko "hook: no state"
@@ -25,6 +28,7 @@ mkdir -p $W/alpha $W/beta $W/gamma
 echo '{"feature":"alpha","phase":"build","status":"waiting_review","handed_off":true}' >$W/alpha/state.json
 [[ -z "$(hook)" ]] && ok "hook: waiting_review never advances" || ko "hook: waiting_review"
 
+own beta; own gamma
 echo '{"feature":"beta","phase":"plan","status":"done","handed_off":false}' >$W/beta/state.json
 sleep 1
 echo '{"feature":"gamma","phase":"design","status":"done","handed_off":false}' >$W/gamma/state.json
@@ -33,10 +37,67 @@ out="$(hook | jq -r .reason)"
 [[ ! -s "$T/notify.out" ]] && ok "hook: a hand-off does not notify" || ko "hook: hand-off notified: $(cat "$T/notify.out")"
 [[ "$(jq .handed_off $W/beta/state.json)" == true ]] && ok "hook: beta marked handed off" || ko "hook: mark"
 [[ "$(jq .handed_off $W/gamma/state.json)" == false ]] && ok "hook: gamma untouched" || ko "hook: gamma touched"
-[[ -z "$(hook true)" ]] && ok "hook: stop_hook_active lets the stop through" || ko "hook: stop_hook_active"
-out="$(hook | jq -r .reason)"
-[[ "$out" == *'"gamma"'*write-plan* ]] && ok "hook: next stop hands off gamma -> write-plan" || ko "hook: second: $out"
-[[ -z "$(hook)" ]] && ok "hook: nothing left" || ko "hook: repeat"
+# A stop inside the turn the hook started (stop_hook_active) still hands off the next ready phase.
+out="$(hook true | jq -r .reason)"
+[[ "$out" == *'"gamma"'*write-plan* ]] && ok "hook: stop_hook_active still hands off gamma -> write-plan" || ko "hook: second: $out"
+[[ -z "$(hook true)" ]] && ok "hook: nothing left, even with stop_hook_active (no loop)" || ko "hook: repeat"
+
+# Two sessions in one project: each hands off only its own feature.
+own delta s1; own eps s2
+echo '{"feature":"eps","phase":"plan","status":"done","handed_off":false}' >$W/eps/state.json
+sleep 1
+echo '{"feature":"delta","phase":"plan","status":"done","handed_off":false}' >$W/delta/state.json
+out="$(hook false s1 | jq -r .reason)"
+[[ "$out" == *'"delta"'* && "$(jq .handed_off $W/eps/state.json)" == false ]] \
+  && ok "hook: s1 skips s2's older feature and takes its own" || ko "hook: s1 took: $out"
+[[ -z "$(hook false s1)" && "$(jq .handed_off $W/eps/state.json)" == false ]] \
+  && ok "hook: s1 never takes s2's feature" || ko "hook: s1 stole eps"
+grep -q 'allow:not-ready other-sessions=eps' $W/hook.log && ok "hook: log names features waiting for other sessions" || ko "hook: other-sessions log"
+out="$(hook false s2 | jq -r .reason)"
+[[ "$out" == *'"eps"'*design-feature* ]] && ok "hook: s2 hands off its own feature" || ko "hook: s2: $out"
+
+# No owner file (a state from before the claim hook): the session whose transcript wrote it.
+mkdir -p $W/zeta
+echo '{"feature":"zeta","phase":"plan","status":"done","handed_off":false}' >$W/zeta/state.json
+[[ -z "$(hook false s3)" ]] && ok "hook: an unowned state is not taken by a session that never wrote it" || ko "hook: unowned taken"
+cp "$T/wz.jsonl" "$T/wz.bak"
+echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"/p/.claude/workflow/zeta/state.json"}}]}}' >>"$T/wz.jsonl"
+out="$(hook false s3 | jq -r .reason)"
+[[ "$out" == *'"zeta"'* ]] && ok "hook: an unowned state goes to the session that wrote it" || ko "hook: unowned: $out"
+mv "$T/wz.bak" "$T/wz.jsonl"
+rm -rf $W/delta $W/eps $W/zeta
+
+# ---- claim-feature.sh ----
+claim() { jq -n --arg s "$1" --arg t "$2" --argjson i "$3" '{session_id:$s, tool_name:$t, tool_input:$i}' | bash $SRC/hooks/claim-feature.sh; }
+mkdir -p $W/omega
+claim s1 Write "{\"file_path\":\"$PWD/$W/omega/state.json\"}"
+[[ "$(cat $W/omega/owner)" == s1 ]] && ok "claim: Write of state.json records the session" || ko "claim: Write"
+claim s2 Bash '{"command":"mkdir -p .claude/workflow/omega && printf x > .claude/workflow/omega/state.json"}'
+[[ "$(cat $W/omega/owner)" == s2 ]] && ok "claim: a Bash redirect to state.json records the session" || ko "claim: Bash"
+claim s1 Bash '{"command":"cat .claude/workflow/omega/state.json"}'
+[[ "$(cat $W/omega/owner)" == s2 ]] && ok "claim: reading state.json claims nothing" || ko "claim: read claimed"
+claim s3 Skill '{"skill":"workez:design-feature","args":"omega"}'
+[[ "$(cat $W/omega/owner)" == s3 ]] && ok "claim: running a workez skill for the feature takes it over" || ko "claim: Skill"
+claim s1 Skill '{"skill":"other:thing","args":"omega"}'
+claim s1 Skill '{"skill":"workez:plan-feature","args":"add a search box"}'
+[[ "$(cat $W/omega/owner)" == s3 && ! -e $W/add ]] && ok "claim: other skills and free-text arguments claim nothing" || ko "claim: false claim"
+claim s1 Skill '{"skill":"workez:design-feature","args":"../.."}'
+[[ ! -e .claude/owner && ! -e owner ]] && ok "claim: a path argument is ignored" || ko "claim: path"
+rm -rf $W/omega
+
+# ---- build-lock.sh ----
+lock() { bash $SRC/scripts/build-lock.sh "$1"; }
+own one s1; own two s2; own three s1
+echo '{"feature":"two","phase":"build","status":"in_progress","handed_off":true}' >$W/two/state.json
+[[ "$(lock one)" == FREE ]] && ok "build-lock: another session's build does not block" || ko "build-lock: other session: $(lock one)"
+echo '{"feature":"three","phase":"task","status":"in_progress","handed_off":true}' >$W/three/state.json
+out="$(lock one)"; rc=$?
+[[ $rc == 1 && "$out" == "BUSY three" ]] && ok "build-lock: this session's own build blocks" || ko "build-lock: same session: $rc $out"
+echo '{"feature":"three","phase":"build","status":"waiting_review","handed_off":true}' >$W/three/state.json
+[[ "$(lock one)" == FREE ]] && ok "build-lock: waiting_review does not block" || ko "build-lock: waiting_review"
+rm $W/two/owner
+[[ "$(lock one)" == "BUSY two" ]] && ok "build-lock: an unowned build counts as this session's" || ko "build-lock: unowned"
+rm -rf $W/one $W/two $W/three
 
 rm -rf $W/alpha $W/beta $W/gamma
 echo '{"feature":"legacy","phase":"build","status":"done","handed_off":false}' >$W/state.json
@@ -106,7 +167,9 @@ mkdir -p $W/demo $W/playwright-a specs/demo/evidence/verify specs/demo/reviews
 echo '{"feature":"demo","phase":"verify","status":"in_progress","handed_off":true}' >$W/demo/state.json
 echo x >$W/playwright-a/shot.png; echo v >specs/demo/evidence/verify/verification.md
 mkdir -p $W/other; echo '{"feature":"other","phase":"plan","status":"in_progress","handed_off":true}' >$W/other/state.json
+mkdir -p $W/lane-slots; echo demo >$W/lane-slots/0; echo other >$W/lane-slots/1
 out="$($SRC/scripts/cleanup-feature.sh demo)"
+[[ ! -e $W/lane-slots/0 && "$(cat $W/lane-slots/1)" == other ]] && ok "cleanup feature: its port slot freed, others kept" || ko "cleanup slot: $(ls $W/lane-slots)"
 [[ ! -d "$W2" ]] && ! git show-ref -q --verify refs/heads/feat/9-two && ok "cleanup feature: remaining merged task removed" || ko "feature T2: $out"
 [[ ! -d "$EV" ]] && ! git show-ref -q --verify refs/heads/feat/7-demo-evidence && ok "cleanup feature: pushed evidence worktree and branch removed" || ko "feature evidence: $out"
 [[ ! -d $W/demo && ! -d specs/demo/evidence && ! -d specs/demo/reviews ]] && ok "cleanup feature: runtime, evidence, reviews removed" || ko "feature dirs: $out"

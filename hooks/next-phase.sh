@@ -10,6 +10,13 @@
 # Anything else (build in progress, waiting_review, blocked, verify, done, and a standalone build-task
 # with phase task) never advances.
 # With several features ready, the one whose state changed first goes now, the next at the next stop.
+# Several sessions may run features in one project: a feature goes only to the session that owns it,
+# the one whose id claim-feature.sh wrote to .claude/workflow/<feature>/owner (it wrote the state or
+# started the feature's skill). A feature with no owner file (a state written before that hook existed)
+# goes to a session whose transcript names its state.json, or to any session when there is no transcript.
+# Another session's feature is never taken: it waits for its owner, or for the user to run its skill.
+# A stop inside a turn that this hook started (stop_hook_active) still hands off: every hand-off marks
+# its state handed_off first, so each state is handed off once and the chain cannot loop.
 # Appends one line per run to .claude/workflow/hook.log, cut back to its last 500 lines once it passes
 # 1000. Any problem allows the stop. Every allowed stop runs notify-on-finish.sh (its output to stderr), so
 # the "finished" notification comes only when Claude really stops, never on a hand-off.
@@ -34,15 +41,27 @@ log() {
   fi
 }
 
-[[ "$(jq -r '.stop_hook_active // false' <<<"$input" 2>/dev/null)" == "true" ]] && { log "allow:stop-hook-active"; exit 0; }
+session="$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null)"
+transcript="$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)"
 
-# The ready state files, oldest change first.
-ready=""
+# mine <state file>: true when this session may hand off that feature.
+mine() {
+  local folder owner
+  folder="$(dirname "$1")"
+  owner="$(cat "$folder/owner" 2>/dev/null)"
+  if [[ -n "$owner" ]]; then [[ "$owner" == "$session" ]]; return; fi
+  [[ -n "$transcript" && -f "$transcript" ]] || return 0
+  grep -qF -- "/$(basename "$folder")/state.json" "$transcript"
+}
+
+# The ready state files of this session, oldest change first.
+ready="" others=""
 while IFS= read -r f; do
-  [[ "$(jq -r 'select(.status == "done" and .handed_off == false) | .phase' "$f" 2>/dev/null)" =~ ^(plan|design|write-plan|tasks|build)$ ]] \
-    && { ready="$f"; break; }
+  [[ "$(jq -r 'select(.status == "done" and .handed_off == false) | .phase' "$f" 2>/dev/null)" =~ ^(plan|design|write-plan|tasks|build)$ ]] || continue
+  if mine "$f"; then ready="$f"; break; fi
+  others+="${others:+,}$(basename "$(dirname "$f")")"
 done < <(ls -tr "$DIR"/*/state.json 2>/dev/null)
-[[ -n "$ready" ]] || { log "allow:not-ready"; exit 0; }
+[[ -n "$ready" ]] || { log "allow:not-ready" "${others:+other-sessions=$others}"; exit 0; }
 
 state="$(tr -d '\n' <"$ready")"
 feature="$(jq -r '.feature // empty' "$ready")"
