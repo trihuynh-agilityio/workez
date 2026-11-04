@@ -80,7 +80,16 @@ Event schema, version 1. Facts only:
 
 - `office/model.js`: a pure reducer from events, state.json and plan.md to a snapshot: `{columns, features: [{name, kind, phase, step, column, status, reason, gate, since, agent, quiet, tasks: [...]}], waiting}`; `gate` is true when the card waits at a workflow gate from state.json (approve the plan, merge a PR, approve plan-fix.md), not at a question or a permission prompt. `office/load.js` reads the files for it; `node office/snapshot.js` prints the board as text (`--json` for the snapshot). Tested in Node (`office/test/`) and end to end with the real hook (`tests/test-office-model.sh`).
 - `office/server.js`: Node `http` and `fs` only, no npm dependencies (Node 18 is already required for Playwright). `GET /api/health`, `GET /api/snapshot`, `GET /api/stream` (SSE) and the static UI. Binds to 127.0.0.1, checks the `Host` header, read-only.
-- `office/ui/`: `index.html`, `app.js`, `style.css`. Vanilla JS, no build step, no CDN.
+- `office/ui/`: `index.html`, `app.js`, `style.css` and `scene.js`. Vanilla JS, no build step, no CDN. `node office/server.js --demo` serves scripted sample data, to try the page without a project.
+
+### The office scene
+
+The page draws the workflow as an office floor, in the order of the workflow: Plan (a brainstorm with you), Design, Implementation plan, Tasks, Build, Verify, Done, and Your office. `office/ui/scene.js` is a pure function from the snapshot to the floor, tested in Node (`office/test/scene.test.js`).
+
+- **Characters.** Each feature is a robot in the room of its step. While it builds, its tasks are the robots instead, one per task. A robot's body has the colour of the agent at work. Its eyes show the state: scanning (working), pause bars (waiting on you), closed (quiet or not started), X (error), happy (done). It holds what the step produces: intent.md, spec.md, plan.md, the issues, code, the diff, UI evidence, the PR.
+- **Build.** One bay per building feature, each with lanes A and B and the lane stations (queued, implement + check-task, review, UI check, push + PR). One bay is shown by default. With two or more features building, a header control shows more, and features that wait on you or failed get a bay first. A bay keeps its feature across updates.
+- **Your office.** A card goes there when it waits at a workflow gate (`gate` in the snapshot) or for an approval: approve the plan or `plan-fix.md`, merge a task PR or the final PR. A question or a permission prompt keeps the robot where it works, with a "!" bubble.
+- **Header.** The "!" button lists everything that waits on you, across all features. The page has no other controls; the floor only shows.
 
 ### Step to column config
 
