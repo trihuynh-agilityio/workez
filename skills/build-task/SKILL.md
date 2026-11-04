@@ -21,7 +21,7 @@ Argument: a description of the change, an existing issue as `#<n>`, or the `<slu
 
 Stop and tell the user what to do if any fails:
 
-- No feature or task is building: every `<project root>/.claude/workflow/*/state.json` with phase `build` or `task`, other than this task's own, has a status other than `in_progress`. The lanes share their ports and Playwright browsers.
+- This session is not building another feature or task: `${CLAUDE_PLUGIN_ROOT}/scripts/build-lock.sh <slug>` prints `FREE` (other sessions' builds do not count; each feature gets its own ports). On `BUSY <name>`, name it and stop.
 - For a resume, `.claude/workflow/<slug>/plan.md` exists. If its line 2 is still `Status: draft.`, go to step 4: an unapproved plan is never built. Otherwise go to step 5 when its `Issue:` is `pending`, else step 6.
 
 ## 2. Scope

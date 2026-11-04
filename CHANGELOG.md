@@ -10,6 +10,16 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-04
+
+### Added
+- Features run in parallel Claude sessions in one project. The `claim-feature.sh` hook records which session owns a feature (`.claude/workflow/<feature>/owner`), `dev-servers.sh start <lane> <path> <feature>` gives each feature its own port slot and state folder, and `build-lock.sh` replaces the one-build-per-project rule with one build per session.
+
+### Fixed
+- `next-phase.sh` no longer hands one session's feature to another session that happens to stop first; that feature used to be marked handed off and then never started.
+- `next-phase.sh` now hands off a phase that finishes inside a turn the hook itself started (`stop_hook_active`), so `write-plan` goes on to `create-task-issues` without a nudge.
+- `block-forbidden-command.sh` no longer blocks pushing a feature branch while the checkout is on a protected branch, which stopped `build-feature` before wave 0; merging on a protected branch is still blocked.
+
 ## [0.3.0] - 2026-11-03
 
 ### Added
@@ -50,7 +60,8 @@ First release of workez: a Claude Code plugin that takes a feature from intent t
 - `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
 - Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
-[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/trihuynh-agilityio/workez/releases/tag/v0.1.0
