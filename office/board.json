@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "quiet_after_min": 10,
+  "hide_idle_after_hours": 24,
+  "steps": {
+    "intent":    {"level": "feature", "skills": ["workez:plan-feature", "workez:write-intent"]},
+    "spec":      {"level": "feature", "skills": ["workez:design-feature", "workez:write-spec"], "agents": ["workez:spec-reviewer"]},
+    "plan":      {"level": "feature", "skills": ["workez:write-plan"]},
+    "issues":    {"level": "feature", "skills": ["workez:create-task-issues"]},
+    "build":     {"level": "feature", "skills": ["workez:build-feature", "workez:build-task"]},
+    "verify":    {"level": "feature", "skills": ["workez:verify-feature"], "agents": ["workez:e2e-verifier"]},
+    "todo":      {"level": "task"},
+    "implement": {"level": "task", "agents": ["workez:implementer"]},
+    "review":    {"level": "task", "agents": ["workez:code-reviewer"]},
+    "ui_check":  {"level": "task", "agents": ["workez:ui-verifier"]},
+    "pr_open":   {"level": "task"},
+    "done":      {"level": "both"}
+  },
+  "columns": [
+    {"id": "intent",    "title": "Intent",    "steps": ["intent"]},
+    {"id": "spec",      "title": "Spec",      "steps": ["spec"]},
+    {"id": "plan",      "title": "Plan",      "steps": ["plan"]},
+    {"id": "issues",    "title": "Issues",    "steps": ["issues"]},
+    {"id": "implement", "title": "Implement", "steps": ["todo", "implement"]},
+    {"id": "review",    "title": "Review",    "steps": ["review"]},
+    {"id": "ui_check",  "title": "UI check",  "steps": ["ui_check"]},
+    {"id": "pr_open",   "title": "PR open",   "steps": ["pr_open"]},
+    {"id": "verify",    "title": "Verify",    "steps": ["verify"]},
+    {"id": "done",      "title": "Done",      "steps": ["done"]}
+  ]
+}
