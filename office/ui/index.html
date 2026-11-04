@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>workez office</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230d1117'/%3E%3Cpath d='M15 22l7.4 19.7 7.4-14.8 7.4 14.8 7.4-19.7' fill='none' stroke='%237ee787' stroke-width='4.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='50.5' cy='22' r='3.7' fill='%237ee787'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="brand">
+      <h1>
+        <svg role="img" aria-label="workez" width="141" height="30" viewBox="0 0 300 64">
+          <rect width="64" height="64" rx="15" fill="#0d1117"/>
+          <path d="M15 22l7.4 19.7 7.4-14.8 7.4 14.8 7.4-19.7" fill="none" stroke="#7ee787" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="50.5" cy="22" r="3.7" fill="#7ee787"/>
+          <text x="82" y="49" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="54" font-weight="800" letter-spacing="-1.5" fill="#1f2328">work<tspan fill="#1a7f37">ez</tspan></text>
+        </svg>
+        <span class="sep" aria-hidden="true"></span>
+        <span>Office</span>
+      </h1>
+      <span id="project" class="project"></span>
+      <span id="conn" class="conn" data-state="connecting"><span class="dot" aria-hidden="true"></span><span id="conn-text">Connecting…</span></span>
+    </div>
+    <div class="controls">
+      <div id="bays" class="bays" role="group" aria-label="Build features shown" hidden>
+        <span>Build</span>
+        <button type="button" id="bay-minus" class="step" aria-label="Show fewer features in Build">−</button>
+        <span id="bay-n" class="n">1</span>
+        <button type="button" id="bay-plus" class="step" aria-label="Show more features in Build">+</button>
+        <button type="button" id="bay-more" class="more" hidden></button>
+      </div>
+      <div class="alert-wrap">
+        <button type="button" id="alert" class="alert" aria-expanded="false" disabled>
+          <span class="icon" aria-hidden="true">!</span><span id="alert-n">0</span>
+        </button>
+        <div id="alert-list" class="alert-list" role="dialog" aria-label="Waiting on you" hidden></div>
+      </div>
+    </div>
+  </header>
+  <main id="floor" class="floor" aria-label="Office floor, laid out as the workflow">
+    <div id="fit" class="fit">
+      <div id="stage" class="stage">
+        <div id="static"></div>
+        <div id="chars"></div>
+      </div>
+    </div>
+    <p id="empty" class="empty" hidden>No workflow has run in this project in the last 7 days.</p>
+  </main>
+</div>
+<script src="scene.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
