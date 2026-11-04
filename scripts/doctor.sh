@@ -62,6 +62,8 @@ missing="$(jq -r '. as $root | [ "github.repo", "github.remote", "branches.base"
 for f in "$WF_CONFIG" "$WF_LOCAL"; do
   [[ -f "$f" ]] && jq -e 'has("notify") and (.notify | type != "boolean")' "$f" >/dev/null 2>&1 \
     && warn "notify" "must be true or false in $(basename "$f"); notifications stay on"
+  [[ -f "$f" ]] && jq -e 'has("office") and (.office | type != "boolean")' "$f" >/dev/null 2>&1 \
+    && warn "office" "must be true or false in $(basename "$f"); office events stay on"
 done
 if [[ -f "$WF_LOCAL" ]]; then
   if ! jq -e 'type == "object"' "$WF_LOCAL" >/dev/null 2>&1; then

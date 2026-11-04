@@ -10,6 +10,10 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+
+- `hooks/office-event.sh` records the workflow's events for the coming office board: one JSON line per workez skill, agent start and stop, lane result, question, permission prompt and session event, in `.claude/workflow/office/events-<session>.jsonl` (schema in `docs/office-events.md`). It prints nothing, adds no tokens, takes about 15 ms and always exits 0; prompts are never recorded. A new personal key `office` (`false` turns it off, in `workflow.json` or `workflow.local.json`) and the `WF_OFFICE` env var.
+
 ## [0.3.0] - 2026-11-03
 
 ### Added
