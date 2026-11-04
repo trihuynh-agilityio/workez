@@ -78,13 +78,13 @@ Event schema, version 1. Facts only:
 
 ## 5. Model, server and UI
 
-- `office/model.js`: a pure reducer from events, state.json and plan.md to `{features, cards: [{id, feature, task, step, status, agent, since, reason}]}`. Tested in Node with recorded fixtures. `node office/model.js --snapshot` prints the board as text.
+- `office/model.js`: a pure reducer from events, state.json and plan.md to a snapshot: `{columns, features: [{name, kind, phase, step, column, status, reason, gate, since, agent, quiet, tasks: [...]}], waiting}`; `gate` is true when the card waits at a workflow gate from state.json (approve the plan, merge a PR, approve plan-fix.md), not at a question or a permission prompt. `office/load.js` reads the files for it; `node office/snapshot.js` prints the board as text (`--json` for the snapshot). Tested in Node (`office/test/`) and end to end with the real hook (`tests/test-office-model.sh`).
 - `office/server.js`: Node `http` and `fs` only, no npm dependencies (Node 18 is already required for Playwright). `GET /api/health`, `GET /api/snapshot`, `GET /api/stream` (SSE) and the static UI. Binds to 127.0.0.1, checks the `Host` header, read-only.
 - `office/ui/`: `index.html`, `app.js`, `style.css`. Vanilla JS, no build step, no CDN.
 
 ### Step to column config
 
-Two levels, so columns can be regrouped without touching detection. The default is `office/board.json` in the plugin; a project may override it under `office` in `workflow.json`.
+Two levels, so columns can be regrouped without touching detection. The default is `office/board.json` in the plugin; a project may override it in `.claude/office.json` (steps merge by id; `columns`, when given, replace the list). Not under `office` in `workflow.json`: that key is the personal on/off switch.
 
 ```json
 {
