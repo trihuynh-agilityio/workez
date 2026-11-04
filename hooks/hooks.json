@@ -43,6 +43,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/claim-feature.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [

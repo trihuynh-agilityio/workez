@@ -1,23 +1,35 @@
 #!/usr/bin/env bash
 # Start or stop the dev servers of one UI-check lane, from a task worktree.
-#   dev-servers.sh start <lane> <worktree-or-project-path>
-#   dev-servers.sh stop  <lane>
+#   dev-servers.sh start <lane> <worktree-or-project-path> [feature]
+#   dev-servers.sh stop  <lane> [feature]
 # Lanes, ports, server commands, environment and ready URLs come from workflow.json ("lanes",
 # "dev_servers", "app_url"). Placeholders: each lane key ({frontend_port}, ...) and {state_dir}, a
 # fresh temp folder per lane, so two lanes never share a database or log. On success it prints
 # APP_URL=<the lane's app URL>.
+# With a feature, the lane runs on that feature's port slot (wf_lane_slot: the first feature to build
+# gets the ports of workflow.json, a second one building at the same time gets them moved up by
+# wf_lane_step) and in its own state folder, so features built in parallel sessions never share a port
+# and `stop` never kills another feature's servers. Pass the same feature to start and stop.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
 
 action="${1:-}"
 lane="${2:-}"
-target="${3:-}"
-usage() { echo "usage: dev-servers.sh start <lane> <worktree-or-project-path> | stop <lane>" >&2; exit 2; }
+case "$action" in
+  start) target="${3:-}"; feature="${4:-}" ;;
+  *) target=""; feature="${3:-}" ;;
+esac
+usage() { echo "usage: dev-servers.sh start <lane> <worktree-or-project-path> [feature] | stop <lane> [feature]" >&2; exit 2; }
 
+slot=0
+if [[ -n "$feature" ]]; then
+  [[ "$feature" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo "dev-servers: bad feature name '$feature'" >&2; usage; }
+  slot="$(wf_lane_slot "$feature")" || { echo "dev-servers: no free port slot for '$feature'" >&2; exit 1; }
+fi
 vars=()
-while IFS= read -r kv; do [[ -n "$kv" ]] && vars+=("$kv"); done < <(wf_lane_vars "$lane")
+while IFS= read -r kv; do [[ -n "$kv" ]] && vars+=("$kv"); done < <(wf_lane_vars "$lane" "$slot")
 ((${#vars[@]})) || { echo "dev-servers: no lane '$lane' in workflow.json" >&2; usage; }
-state="${TMPDIR:-/tmp}/ui-lane-$lane"
+state="${TMPDIR:-/tmp}/ui-lane-$lane${feature:+-$feature}"
 vars+=("state_dir=$state")
 ports=()
 for kv in "${vars[@]}"; do [[ "${kv#*=}" =~ ^[0-9]+$ ]] && ports+=("${kv#*=}"); done
@@ -39,7 +51,7 @@ stop() {
     pids="$(listeners "$p")"
     [[ -n "$pids" ]] && kill -9 $pids 2>/dev/null
   done
-  echo "lane $lane stopped (ports ${ports[*]})"
+  echo "lane $lane${feature:+ of $feature} stopped (ports ${ports[*]})"
 }
 
 start() {
@@ -75,7 +87,7 @@ start() {
       [[ -z "$ready" ]] || curl -sf "$(wf_fill "$ready" "${vars[@]}")" >/dev/null || { all_ready=0; break; }
     done
     if ((all_ready)); then
-      echo "lane $lane ready (state and logs in $state)"
+      echo "lane $lane${feature:+ of $feature} ready on slot $slot (state and logs in $state)"
       echo "APP_URL=$(wf_fill "$(cfg .app_url)" "${vars[@]}")"
       return 0
     fi

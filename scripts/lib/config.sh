@@ -84,9 +84,42 @@ wf_project_in() { local p="$1/${WF_PREFIX%/}"; printf '%s' "${p%/}"; }
 # wf_worktree_path <branch>: where the workflow keeps that branch's worktree.
 wf_worktree_path() { printf '%s/.claude/worktrees/%s' "$WF_TOP" "${1//\//-}"; }
 
-# wf_lane_vars <lane>: key=value lines for the lane's ports, for wf_fill.
+# wf_lane_vars <lane> [slot]: key=value lines for the lane's ports, for wf_fill. With a slot (see
+# wf_lane_slot), every numeric value is moved up by slot * wf_lane_step, so features building at the
+# same time in different sessions never share a port. Slot 0, or none, gives the ports of workflow.json.
 wf_lane_vars() {
-  jq -r --arg l "$1" '.lanes[$l] // empty | to_entries[] | "\(.key)=\(.value)"' "$WF_CONFIG"
+  jq -r --arg l "$1" --argjson off "$((${2:-0} * $(wf_lane_step)))" \
+    '.lanes[$l] // empty | to_entries[] | "\(.key)=\(if (.value | type) == "number" then .value + $off else .value end)"' "$WF_CONFIG"
+}
+
+# wf_lane_step: how far apart the port blocks of two slots are: the span of every lane port in
+# workflow.json plus one, rounded up to a multiple of 10 (at least 10), so no two slots overlap.
+wf_lane_step() {
+  jq -r '[.lanes // {} | .[] | .[] | numbers] | if length == 0 then 10
+    else ((max - min + 1) / 10 | ceil * 10) as $s | if $s < 10 then 10 else $s end end' "$WF_CONFIG"
+}
+
+# wf_lane_slot <feature>: the feature's port slot (0, 1, 2 ...), taken on first use and kept in
+# .claude/workflow/lane-slots/<n> (it holds the feature name). A slot whose feature has no runtime
+# folder any more (cleanup-feature.sh removed it) is free again. Creating the file with noclobber makes
+# taking a slot atomic, so two sessions never get the same one.
+wf_lane_slot() {
+  local f="$1" d="$WF_PROJECT/.claude/workflow/lane-slots" s n holder
+  [[ -n "$f" ]] || return 1
+  mkdir -p "$d" || return 1
+  for s in "$d"/*; do
+    [[ -f "$s" && "$(cat "$s" 2>/dev/null)" == "$f" ]] && { basename "$s"; return 0; }
+  done
+  for ((n = 0; n < 100; n++)); do
+    s="$d/$n"
+    if [[ -f "$s" ]]; then
+      holder="$(cat "$s" 2>/dev/null)"
+      [[ -n "$holder" && -d "$WF_PROJECT/.claude/workflow/$holder" ]] && continue
+      rm -f "$s"
+    fi
+    (set -o noclobber; printf '%s\n' "$f" >"$s") 2>/dev/null && { echo "$n"; return 0; }
+  done
+  return 1
 }
 
 # wf_commands <key>: one line per command of commands.<key>, "<dir><TAB><run>".

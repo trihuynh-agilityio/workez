@@ -29,6 +29,9 @@ h() { jq -n --arg c "$1" --arg d "$T/other" '{tool_input:{command:$c},cwd:$d}' |
   && ok "hooks: silent without workflow.json" || ko "hooks not silent"
 out="$(echo '{"stop_hook_active": false}' | (cd "$T/other" && bash "$SRC/hooks/next-phase.sh"))"
 [[ -z "$out" && ! -e "$T/other/.claude" ]] && ok "next-phase: silent, writes nothing without workflow.json" || ko "next-phase: $out"
+out="$(jq -n --arg d "$T/other" '{session_id:"s1", tool_name:"Skill", tool_input:{skill:"workez:design-feature", args:"x"}, cwd:$d}' \
+  | (cd "$T/other" && CLAUDE_PROJECT_DIR= bash "$SRC/hooks/claim-feature.sh"))"
+[[ -z "$out" && ! -e "$T/other/.claude" ]] && ok "claim-feature: silent, writes nothing without workflow.json" || ko "claim-feature: $out"
 out="$(jq -n --arg c "git push origin main" --arg d "$P/src" '{tool_input:{command:$c},cwd:$d}' | bash "$SRC/hooks/block-push-protected.sh" 2>&1)"; rc=$?
 [[ $rc == 2 ]] && ok "hooks: active from the hook's cwd inside the project" || ko "hook cwd: $rc $out"
 

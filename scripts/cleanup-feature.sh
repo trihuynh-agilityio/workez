@@ -134,6 +134,10 @@ fi
 for d in "$runtime/$feature" "$docs/evidence" "$docs/reviews"; do
   [[ -d "$d" && "$d" == "$WF_PROJECT"/* ]] && act "$d" rm -rf "$d"
 done
+# The feature's port slot (dev-servers.sh), free for the next feature.
+for s in "$runtime"/lane-slots/*; do
+  [[ -f "$s" && "$(cat "$s" 2>/dev/null)" == "$feature" ]] && act "$s" rm -f "$s"
+done
 
 # Shared Playwright output, only when no other feature has a state.
 others=0

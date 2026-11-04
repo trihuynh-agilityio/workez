@@ -23,6 +23,11 @@ expect 2 $f "rm -rf /"
 expect 2 $f "make deploy"
 expect 0 $f "make test"
 expect 0 $f "git status"
+# The checkout is on dev (protected): pushing another branch is fine, merging here is not.
+expect 0 $f "git push -u origin feat/15-remove-note"
+expect 0 $f "cd .claude/worktrees/feat-1-x && git push -u origin feat/1-x"
+expect 2 $f "git push origin dev"
+expect 2 $f "git merge feat/1-x"
 
 p=block-push-protected.sh
 expect 0 $p "git push origin feat/1-x"
