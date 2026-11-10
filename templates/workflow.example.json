@@ -37,7 +37,8 @@
   "docs_dir": "docs/features",
   "task_limits": {
     "max_lines": 300,
-    "max_files": 10
+    "max_files": 10,
+    "exclude": ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "*.svg"]
   },
   "naming": {
     "feature_issue_title": "Feature: {feature_name}",

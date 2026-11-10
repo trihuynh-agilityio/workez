@@ -70,7 +70,7 @@ From: [intent.md](intent.md) and [spec.md](spec.md).
 
 ### Task size (hard rule)
 
-- One task is one PR with fewer than `task_limits.max_lines` changed lines (added and removed, tests included) and fewer than `task_limits.max_files` files. Split a task before writing the plan if it would exceed either limit.
+- One task is one PR with fewer than `task_limits.max_lines` changed lines (added and removed, tests included) and fewer than `task_limits.max_files` files. Files matching `task_limits.exclude` (lock files, `*.snap` and SVGs by default) do not count, but still go in the task's **Files**. Split a task before writing the plan if it would exceed either limit.
 - If the plan needs more than about 10 tasks, stop and tell the user the feature may be too big and should be split. Do not write a huge plan.
 
 ### Task fields
