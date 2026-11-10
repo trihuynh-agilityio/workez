@@ -6,6 +6,8 @@
 # printing every rule that fails. The plan is not inside the worktree while it is
 # untracked, so pass its path; without it the script looks in <docs_dir>/*/plan.md and plan-fix.md.
 # Limits, remote, docs folder and formatters come from .claude/workflow.json.
+# Files matching task_limits.exclude (lock files and SVGs when the key is absent) do not count toward
+# the size limits; they must still be in the task's Files list.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
 docs="$(cfg .docs_dir)"; remote="$(cfg .github.remote)"
@@ -64,19 +66,46 @@ is_record() {
   return 1
 }
 
-# Changed files and lines, paths from the repository root.
-changed="$( { git -C "$top" diff --name-only "$mb"; echo "$untracked"; } | sort -u | sed '/^$/d')"
+# Generated or bulky files (lock files, SVGs ...) do not count toward the size limits:
+# task_limits.exclude, globs relative to the project; a glob without "/" matches the file name at any
+# depth. Absent: the defaults below; [] counts every file.
+exempt_globs="$(jq -r 'if (.task_limits | has("exclude")) then .task_limits.exclude[]? else
+  "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb",
+  "deno.lock", "Cargo.lock", "Gemfile.lock", "composer.lock", "poetry.lock", "Pipfile.lock", "uv.lock",
+  "go.sum", "Podfile.lock", "pubspec.lock", "packages.lock.json", "gradle.lockfile", "flake.lock",
+  "mix.lock", "Package.resolved", ".terraform.lock.hcl", "*.snap", "*.svg" end' "$WF_CONFIG")"
+size_exempt() {
+  local pat rel="${1#"$prefix"}"
+  while IFS= read -r pat; do
+    [[ -n "$pat" ]] || continue
+    if [[ "$pat" == */* ]]; then [[ "$1" == "$prefix"* && "$rel" == $pat ]] && return 0
+    else [[ "${1##*/}" == $pat ]] && return 0; fi
+  done <<<"$exempt_globs"
+  return 1
+}
+uncounted() { is_record "$1" || size_exempt "$1"; }
+
+# Changed files and lines, paths from the repository root. Lines: added + removed, ignoring
+# whitespace-only changes (-w); a renamed or moved file counts only its edits (-M); a deleted file
+# counts as a file but not its lines.
+changed="$( { git -C "$top" diff -M --name-only "$mb"; echo "$untracked"; } | sort -u | sed '/^$/d')"
+deleted="$(git -C "$top" diff -M --name-only --diff-filter=D "$mb")"
 lines=0
-while read -r added removed f; do
-  [[ "$added" == "-" ]] || is_record "$f" || lines=$((lines + added + removed))
-done < <(git -C "$top" diff --numstat "$mb")
+# numstat -z: "added<TAB>removed<TAB>path" NUL, or for a rename "added<TAB>removed<TAB>" NUL old NUL new NUL.
+while IFS= read -r -d '' rec; do
+  added="${rec%%$'\t'*}"; rest="${rec#*$'\t'}"; removed="${rest%%$'\t'*}"; f="${rest#*$'\t'}"
+  if [[ -z "$f" ]]; then IFS= read -r -d '' _old; IFS= read -r -d '' f; fi
+  [[ "$added" == "-" ]] || uncounted "$f" || grep -qxF -- "$f" <<<"$deleted" || lines=$((lines + added + removed))
+done < <(git -C "$top" diff -w -M --numstat -z "$mb")
 while IFS= read -r f; do
-  [[ -n "$f" ]] && ! is_record "$f" && lines=$((lines + $(wc -l <"$top/$f" 2>/dev/null || echo 0)))
+  [[ -n "$f" ]] && ! uncounted "$f" && lines=$((lines + $(wc -l <"$top/$f" 2>/dev/null || echo 0)))
 done < <(git -C "$top" ls-files --others --exclude-standard)
-count=0
+count=0; exempt=0
 while IFS= read -r f; do
-  [[ -n "$f" ]] && ! is_record "$f" && count=$((count + 1))
+  [[ -n "$f" ]] && ! is_record "$f" || continue
+  if size_exempt "$f"; then exempt=$((exempt + 1)); else count=$((count + 1)); fi
 done <<<"$changed"
+not_counted=""; ((exempt)) && not_counted=", $exempt not counted by task_limits.exclude"
 
 fail=0
 bad() { echo "FAIL: $1" >&2; fail=1; }
@@ -142,7 +171,7 @@ for ((i = 0; i < rules; i++)); do
 done
 
 if ((fail)); then
-  echo "check-task $task: FAILED ($lines lines, $count files against $base_ref)" >&2
+  echo "check-task $task: FAILED ($lines lines, $count files$not_counted against $base_ref)" >&2
   exit 1
 fi
-echo "check-task $task: PASS ($lines lines, $count files against $base_ref, branch $current)"
+echo "check-task $task: PASS ($lines lines, $count files$not_counted against $base_ref, branch $current)"
