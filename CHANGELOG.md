@@ -10,6 +10,8 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-10
+
 ### Added
 - Optional `task_limits.exclude` in `workflow.json`: globs of files that `check-task.sh` leaves out of the `max_lines` and `max_files` counts. When absent, common lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`, `go.sum`, `Package.resolved` ...), snapshots (`*.snap`) and `*.svg` are left out; `[]` counts every file as before.
 
@@ -66,7 +68,8 @@ First release of workez: a Claude Code plugin that takes a feature from intent t
 - `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
 - Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
-[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.1.0...v0.2.0
