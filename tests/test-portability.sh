@@ -112,6 +112,40 @@ out="$(cd "$WT" && "$SRC/scripts/check-task.sh" T1 "$T/app/specs/demo/plan.md" 2
 [[ "$out" == *"other.txt is not in the Files list"* ]] && ok "check-task: Files list" || ko "check-task files: $out"
 rm "$WT/other.txt"; echo ok >"$WT/notes.txt"
 
+# task_limits.exclude: lock files and SVGs (the defaults) leave the size counts, not the Files list.
+perl -0pi -e 's/`notes.txt`/`notes.txt`, `package-lock.json`, `web\/a.svg`, `web\/b.svg`, `web\/c.svg`/' specs/demo/plan.md
+mkdir -p "$WT/web"; seq 1 80 >"$WT/package-lock.json"
+for n in a b c; do seq 1 20 >"$WT/web/$n.svg"; done
+out="$(cd "$WT" && "$SRC/scripts/check-task.sh" T1 "$T/app/specs/demo/plan.md" 2>&1)"
+[[ "$out" == *"PASS (1 lines, 1 files, 4 not counted by task_limits.exclude"* ]] \
+  && ok "check-task: lock files and SVGs not counted by default" || ko "check-task exclude defaults: $out"
+jq '.task_limits.exclude = []' .claude/workflow.json >"$T/wf" && cp "$T/wf" .claude/workflow.json
+out="$(cd "$WT" && "$SRC/scripts/check-task.sh" T1 "$T/app/specs/demo/plan.md" 2>&1)"
+[[ "$out" == *"changed files are 5"* && "$out" == *"limit is under 50"* ]] \
+  && ok "check-task: exclude [] counts every file" || ko "check-task exclude []: $out"
+jq '.task_limits.exclude = ["web/*.svg"]' .claude/workflow.json >"$T/wf" && cp "$T/wf" .claude/workflow.json
+out="$(cd "$WT" && "$SRC/scripts/check-task.sh" T1 "$T/app/specs/demo/plan.md" 2>&1)"
+[[ "$out" == *"limit is under 50"* && "$out" != *"changed files are"* && "$out" == *"3 not counted"* ]] \
+  && ok "check-task: exclude glob with a path" || ko "check-task exclude path: $out"
+jq 'del(.task_limits.exclude)' .claude/workflow.json >"$T/wf" && cp "$T/wf" .claude/workflow.json
+git checkout -q specs/demo/plan.md 2>/dev/null || perl -0pi -e 's/`notes.txt`, `package-lock.json`, `web\/a.svg`, `web\/b.svg`, `web\/c.svg`/`notes.txt`/' specs/demo/plan.md
+rm -rf "$WT/web" "$WT/package-lock.json"
+
+# Line counting: whitespace-only edits, a rename and a deletion add no lines; the deletion still counts as a file.
+BW="$T/base-wt"; git worktree add -q "$BW" feature/7-demo
+seq 1 100 >"$BW/data.txt"; seq 101 200 >"$BW/old.txt"; seq 201 300 >"$BW/gone.txt"
+git -C "$BW" add -A && git -C "$BW" commit -q -m "base files" && git worktree remove "$BW"
+git -C "$WT" merge -q --ff-only feature/7-demo
+cp specs/demo/plan.md "$T/plan.bak"
+perl -0pi -e 's/`notes.txt`/`notes.txt`, `data.txt`, `moved.txt`, `gone.txt`/' specs/demo/plan.md
+sed -i.orig 's/^/  /' "$WT/data.txt" && rm "$WT/data.txt.orig"
+git -C "$WT" mv old.txt moved.txt && echo extra >>"$WT/moved.txt" && git -C "$WT" add moved.txt
+git -C "$WT" rm -q gone.txt
+out="$(cd "$WT" && "$SRC/scripts/check-task.sh" T1 "$T/app/specs/demo/plan.md" 2>&1)"
+[[ "$out" == *"FAILED (2 lines, 4 files against"* && "$out" == *"changed files are 4"* && "$out" != *"changed lines"* ]] \
+  && ok "check-task: -w, rename and deletion line counts" || ko "check-task line rules: $out"
+git -C "$WT" reset -q --hard && cp "$T/plan.bak" specs/demo/plan.md && echo ok >"$WT/notes.txt"
+
 # 5. Dev servers of lane A.
 out="$(bash $SRC/scripts/dev-servers.sh start A "$WT" 2>&1)"
 if [[ "$out" == *"APP_URL=http://localhost:5391/"* ]] && curl -sf http://localhost:5391/ >/dev/null; then

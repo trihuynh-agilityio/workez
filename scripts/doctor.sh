@@ -57,6 +57,8 @@ missing="$(jq -r '. as $root | [ "github.repo", "github.remote", "branches.base"
   | map(select(. as $k | ($root | try getpath($k | split(".")) catch null) as $v | $v == null or $v == "")) | join(", ")' \
   "$WF_CONFIG" 2>/dev/null)"
 [[ -z "$missing" ]] && ok "workflow.json keys" || fail "workflow.json keys" "missing: $missing"
+jq -e '(.task_limits.exclude // []) | type == "array" and all(type == "string")' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "task_limits.exclude" "must be a list of glob strings"
 
 # workflow.local.json: one person's overrides, only of the personal keys, never committed.
 for f in "$WF_CONFIG" "$WF_LOCAL"; do

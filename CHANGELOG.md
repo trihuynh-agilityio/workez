@@ -10,6 +10,12 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+- Optional `task_limits.exclude` in `workflow.json`: globs of files that `check-task.sh` leaves out of the `max_lines` and `max_files` counts. When absent, common lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`, `go.sum`, `Package.resolved` ...), snapshots (`*.snap`) and `*.svg` are left out; `[]` counts every file as before.
+
+### Changed
+- `check-task.sh` counts changed lines without whitespace-only changes, counts only the edits of a renamed or moved file, and no longer counts the lines of a deleted file (it still counts toward `max_files`).
+
 ## [0.4.0] - 2026-11-04
 
 ### Added
