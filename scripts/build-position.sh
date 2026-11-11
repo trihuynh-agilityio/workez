@@ -9,10 +9,12 @@
 # The integration task is the one whose Branch says "(only if fixes are needed)"; its line has integration=yes.
 # Output: one line per task, then CURRENT_WAVE, ACTION (start|integrate|wait|blocked|finish) and the tasks it concerns.
 # ACTION=integrate: only integration tasks are left to start; run their check in the caller, not as a lane.
+# The Issue field is "#<n>", or "local" with the local tracker (tracker in workflow.json).
 # Task status: done (MERGED, or CHECK PASS), waiting (OPEN), closed (CLOSED unmerged), todo, resume (todo with a local branch).
 
 plan="${1:-}"; states="${2:-}"
 [[ -f "$plan" && -f "$states" ]] || { echo "usage: build-position.sh <plan-path> <states-file>" >&2; exit 2; }
+source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
 plan_files=("$plan")
 fix="$(dirname "$plan")/plan-fix.md"
 [[ -f "$fix" ]] && plan_files+=("$fix")
@@ -47,7 +49,7 @@ while IFS=$'\t' read -r id wave lane issue branch optional src; do
       elif [[ -n "$branch" ]] && git rev-parse --verify -q "refs/heads/$branch" >/dev/null 2>&1; then s=resume
       fi ;;
   esac
-  [[ "$issue" =~ ^#[0-9]+$ ]] || s=blocked_no_issue
+  wf_issue_ok "$issue" || s=blocked_no_issue
   order+=("$id"); st_list+=("$s"); wv_list+=("$wave"); int_list+=("$optional")
   printf '%s wave=%s lane=%s issue=%s branch=%s pr=%s status=%s integration=%s plan=%s\n' "$id" "$wave" "$lane" "$issue" \
     "${branch:-none}" "${pr:--}" "$s" "$( ((optional)) && echo yes || echo no)" "$src"
