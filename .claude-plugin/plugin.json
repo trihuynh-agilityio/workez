@@ -1,7 +1,7 @@
 {
   "name": "workez",
   "displayName": "Workez",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Idea to merged feature with human gates: intent, spec and plan approvals, GitHub issues, two-lane parallel build with review and Playwright UI checks, task PRs, and whole-feature verification. Per-project settings live in .claude/workflow.json.",
   "author": { "name": "Tri Viet Huynh", "email": "tri.huynh@asnet.com.vn" },
   "repository": "https://github.com/trihuynh-agilityio/workez",

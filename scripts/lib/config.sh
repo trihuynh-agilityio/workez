@@ -146,6 +146,42 @@ wf_format_rule() {
   return 1
 }
 
+# ---- Tracker and remote ----
+# "tracker" in workflow.json: "github" (the default when the key is absent) tracks features, tasks and
+# pull requests on GitHub through gh; "local" keeps them in .claude/workflow/ and reads merges from git,
+# so a project on GitLab, another host or no remote at all needs no gh.
+
+# wf_tracker: github or local.
+wf_tracker() { jq -r '.tracker // "github"' "$WF_CONFIG"; }
+
+# wf_local: true in local tracker mode.
+wf_local() { [[ "$(wf_tracker)" == local ]]; }
+
+# wf_remote: the git remote the workflow pushes to and fetches from: top-level "remote", else
+# github.remote. Empty when the project has no remote ("remote": "" or null in local mode).
+wf_remote() { jq -r 'if has("remote") then (.remote // "") else (.github.remote // "") end' "$WF_CONFIG"; }
+
+# wf_ref <branch>: the ref to compare against: <remote>/<branch>, or the local branch without a remote.
+wf_ref() {
+  local r
+  r="$(wf_remote)"
+  if [[ -n "$r" ]]; then printf '%s/%s' "$r" "$1"; else printf '%s' "$1"; fi
+}
+
+# wf_fetch [branch ...]: git fetch those branches (all with none) from the remote, quietly; does
+# nothing without a remote. Runs in $WF_TOP.
+wf_fetch() {
+  local r
+  r="$(wf_remote)"
+  [[ -n "$r" ]] || return 0
+  git -C "$WF_TOP" fetch -q "$r" "$@"
+}
+
+# wf_issue_ok <Issue field>: true when a plan task's Issue field is ready: "#<n>", or "local" in local mode.
+wf_issue_ok() {
+  if wf_local; then [[ "$1" == local ]]; else [[ "$1" =~ ^#[0-9]+$ ]]; fi
+}
+
 # wf_trailers: the commit trailer lines of workflow.json "commit_trailers" (one per line; nothing when
 # it is []), "Co-Authored-By: Claude <noreply@anthropic.com>" when the key is absent.
 wf_trailers() {

@@ -7,7 +7,11 @@ tools: Bash, Read
 
 You run the GitHub operations the caller names for the feature workflow: one operation, or a numbered batch (see "Batch"). GitHub-side only: never edit the intent, a spec or any repo file.
 
-Settings: read `<project root>/.claude/workflow.json` first (the project root is the folder that holds `.claude/` and the docs folder `docs_dir`). `<repo>` below is its `github.repo`. Pass `--repo <repo>` to every `gh` command and use `repos/<repo>/...` in every `gh api` path; never rely on the current directory's remote, and never use `gh repo view`.
+Settings: read `<project root>/.claude/workflow.json` first (the project root is the folder that holds `.claude/` and the docs folder `docs_dir`).
+
+**Local tracker.** If `workflow.json` has `"tracker": "local"`, never run `gh`. Run every operation, batch lines included, as `${CLAUDE_PLUGIN_ROOT}/scripts/local-ops.sh <operation> <inputs>` from the project root, one Bash call per operation, passing the inputs as separate quoted arguments (text as one argument, or `--body-file <path>`). Report what it prints as the result, in the line format of "Batch". The numbers are the feature folder name (feature), `local` (task) and the head branch (pull request), so `$<n>.number` is that value. Exit 1 is an ERROR with the message it printed. The sections below on `gh`, labels and the issue body apply only to the GitHub tracker; "Batch" and "Rules" apply to both.
+
+`<repo>` below is its `github.repo`. Pass `--repo <repo>` to every `gh` command and use `repos/<repo>/...` in every `gh api` path; never rely on the current directory's remote, and never use `gh repo view`.
 
 ## Operations
 

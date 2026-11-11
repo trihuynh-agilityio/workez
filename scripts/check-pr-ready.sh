@@ -5,7 +5,7 @@
 # while it is untracked, so pass its path.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
-docs="$(cfg .docs_dir)"; remote="$(cfg .github.remote)"
+docs="$(cfg .docs_dir)"; remote="$(wf_remote)"
 
 task="${1:-}"
 plan="${2:-}"
@@ -40,8 +40,8 @@ dirty="$(git status --porcelain --untracked-files=all | grep -vE "^\?\? (.*/)?$d
   grep -vE "^\?\? (.*/)?$docs/[^/]+/evidence/$task/" || true)"
 [[ -z "$dirty" ]] || bad "the working tree is not clean (commit or remove: $(head -3 <<<"$dirty" | tr '\n' ' '))"
 
-# 2. The sub-issue exists.
-[[ "$issue" =~ ^#[0-9]+$ ]] || bad "Issue is '${issue:-missing}', not a sub-issue number; run create-task-issues first"
+# 2. The sub-issue exists ("local" with the local tracker).
+wf_issue_ok "$issue" || bad "Issue is '${issue:-missing}', not $(wf_local && echo "'local'" || echo 'a sub-issue number'); run create-task-issues first"
 
 # 3. Size and file guard.
 out="$("$here/check-task.sh" "$task" "$plan" 2>&1)" || bad "check-task.sh failed: $out"
@@ -67,8 +67,12 @@ if grep -q '^- \*\*UI check\*\*' <<<"$block"; then
   fi
 fi
 
-# 6. The PR base must exist on GitHub.
-git ls-remote --exit-code --heads "$remote" "$base" >/dev/null 2>&1 || bad "base branch $base is not on the $remote remote; push it first (it is never pushed from here)"
+# 6. The PR base must exist on the remote (locally when the project has none).
+if [[ -n "$remote" ]]; then
+  git ls-remote --exit-code --heads "$remote" "$base" >/dev/null 2>&1 || bad "base branch $base is not on the $remote remote; push it first (it is never pushed from here)"
+else
+  git rev-parse --verify -q "refs/heads/$base" >/dev/null || bad "base branch $base does not exist"
+fi
 
 if ((fail)); then
   echo "check-pr-ready $task: NOT READY" >&2

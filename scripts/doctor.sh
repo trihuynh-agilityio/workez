@@ -2,6 +2,7 @@
 # Checks that this machine and the project are ready for the workez workflow. Read-only: it changes
 # nothing. Run it from inside the project.
 #   doctor.sh [--offline]     (--offline skips the GitHub and remote checks)
+# With "tracker": "local" in workflow.json, gh and github.* are not needed (see WORKFLOW.md).
 # One line per check: "OK", "WARN" (works, but something is missing or risky) or "FAIL" (the
 # workflow will break), the check and a hint. Exits 1 when any check fails.
 
@@ -25,9 +26,11 @@ if command -v git >/dev/null; then
   v="$(version_of git --version)"
   ver_ge "$v" 2.42 && ok "git" "$v" || fail "git" "$v found; 2.42 or newer is required (worktree add --orphan)"
 else fail "git" "not installed"; fi
-for t in jq gh curl lsof; do
+for t in jq curl lsof; do
   command -v "$t" >/dev/null && ok "$t" "$(version_of "$t" --version)" || fail "$t" "not installed; install it with your package manager"
 done
+# gh is needed only by the GitHub tracker; judged once workflow.json is read (or at the end without it).
+has_gh=0; command -v gh >/dev/null && has_gh=1 && ok "gh" "$(version_of gh --version)"
 if command -v node >/dev/null && command -v npx >/dev/null; then
   v="$(version_of node --version)"
   ver_ge "$v" 18 && ok "node + npx" "$v" || fail "node + npx" "$v found; Node 18 or newer is needed for Playwright MCP"
@@ -40,6 +43,7 @@ for c in "/Applications/Google Chrome.app" "$HOME/Applications/Google Chrome.app
 
 # ---- Project ----
 if ! source "$here/lib/config.sh" 2>/dev/null; then
+  ((has_gh)) || warn "gh" "not installed; needed for the GitHub tracker, not for \"tracker\": \"local\""
   fail "workflow.json" "no .claude/workflow.json in $PWD or above; run /workez:setup"
   echo; echo "failures: $fails, warnings: $warns"; exit 1
 fi
@@ -49,7 +53,15 @@ if ! jq empty "$WF_CONFIG" 2>/dev/null; then
   echo; echo "failures: $fails, warnings: $warns"; exit 1
 fi
 
-missing="$(jq -r '. as $root | [ "github.repo", "github.remote", "branches.base", "branches.protected",
+tracker="$(wf_tracker)"
+case "$tracker" in
+  github) ok "tracker" "github"; ((has_gh)) || fail "gh" "not installed; the GitHub tracker needs it (or set \"tracker\": \"local\")" ;;
+  local) ok "tracker" "local (no GitHub)"
+    ((has_gh)) || ok "gh" "not needed by the local tracker" ;;
+  *) fail "tracker" "'$tracker'; must be github or local" ;;
+esac
+gh_keys='"github.repo", "github.remote",'; [[ "$tracker" == local ]] && gh_keys=""
+missing="$(jq -r '. as $root | [ '"$gh_keys"' "branches.base", "branches.protected",
   "docs_dir", "task_limits.max_lines", "task_limits.max_files", "naming.feature_issue_title",
   "naming.task_issue_title", "naming.fix_issue_title", "naming.integration_branch", "naming.task_branch",
   "naming.task_pr_title", "naming.final_pr_title", "naming.task_commit", "naming.review_fix_commit",
@@ -57,6 +69,11 @@ missing="$(jq -r '. as $root | [ "github.repo", "github.remote", "branches.base"
   | map(select(. as $k | ($root | try getpath($k | split(".")) catch null) as $v | $v == null or $v == "")) | join(", ")' \
   "$WF_CONFIG" 2>/dev/null)"
 [[ -z "$missing" ]] && ok "workflow.json keys" || fail "workflow.json keys" "missing: $missing"
+if [[ "$tracker" == local ]]; then
+  nums="$(jq -r '[.naming // {} | to_entries[] | select(.value | test("\\{(feature|task)_issue\\}")) | .key] | join(", ")' "$WF_CONFIG")"
+  [[ -z "$nums" ]] && ok "local naming" "no issue numbers" \
+    || fail "local naming" "$nums use {feature_issue} or {task_issue}; the local tracker has no numbers (use {feature_slug}, {task_slug})"
+fi
 jq -e '(.task_limits.exclude // []) | type == "array" and all(type == "string")' "$WF_CONFIG" >/dev/null 2>&1 \
   || fail "task_limits.exclude" "must be a list of glob strings"
 
@@ -142,15 +159,21 @@ old=""; for f in .claude/hooks/next-phase.sh .claude/scripts/lib/config.sh .clau
   || warn "duplicate copy" "found$old; remove the project's copy of the plugin's files (and their hooks in settings.json)"
 
 # ---- Git and GitHub ----
-repo="$(cfg .github.repo)"; remote="$(cfg .github.remote)"
-if git -C "$WF_PROJECT" remote get-url "$remote" >/dev/null 2>&1; then ok "git remote" "$remote"
-else fail "git remote" "no remote named $remote (github.remote)"; fi
-if ((offline)); then
+repo="$(cfg .github.repo)"; remote="$(wf_remote)"
+if [[ -z "$remote" && "$tracker" == local ]]; then
+  ok "git remote" "none (local tracker: nothing is pushed)"
+  git -C "$WF_PROJECT" rev-parse -q --verify "refs/heads/$base" >/dev/null && ok "base branch" "$base (local)" \
+    || fail "base branch" "no local branch $base (branches.base)"
+elif git -C "$WF_PROJECT" remote get-url "$remote" >/dev/null 2>&1; then ok "git remote" "$remote"
+else fail "git remote" "no remote named $remote (remote / github.remote)"; fi
+if [[ -z "$remote" && "$tracker" == local ]]; then :
+elif ((offline)); then
   echo "SKIP  GitHub checks         --offline"
 else
   if git -C "$WF_PROJECT" ls-remote --exit-code --heads "$remote" "$base" >/dev/null 2>&1; then ok "base branch" "$remote/$base"
   else fail "base branch" "$base not found on $remote"; fi
-  if gh auth status >/dev/null 2>&1; then
+  if [[ "$tracker" == local ]]; then ok "GitHub checks" "skipped: local tracker"
+  elif gh auth status >/dev/null 2>&1; then
     ok "gh auth"
     info="$(gh repo view "$repo" --json hasIssuesEnabled,viewerPermission 2>/dev/null)"
     if [[ -z "$info" ]]; then fail "GitHub repo" "cannot read $repo with gh"

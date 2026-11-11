@@ -2,7 +2,7 @@
 name: build-task
 description: Use when asked to build ONE small, standalone change (a tweak, a small addition, a refactor) without the whole feature workflow. Writes a one-task plan and shows it to the user for approval before anything else happens, then opens a task issue, runs the task pipeline (implementer, review loop, UI check, full test suite), opens one PR straight to the base branch, then watches it until it is merged. Run with a description of the change, an existing issue as `#<n>`, or the task's slug to resume. A change that needs more than one task goes to plan-feature.
 model: opus
-allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
+allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
 ---
 
 # Build one task
@@ -16,6 +16,11 @@ Argument: a description of the change, an existing issue as `#<n>`, or the `<slu
 - Settings: `<project root>/.claude/workflow.json`. Below, `<docs_dir>` is its `docs_dir`, `<remote>` is `github.remote`, `<base>` is `branches.base`, and the commands are its `commands` (each runs in its `dir`).
 - Project root: the folder that holds `.claude/workflow.json`. The task's folder is `<project root>/.claude/workflow/<slug>/` (git-ignored): its **plan path** is `plan.md` there and its state `state.json`. The plan is never committed. Its review report and UI evidence live in the worktree under `<docs_dir>/<slug>/reviews/` and `evidence/`, as for a feature. Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`.
 - `<slug>` stands in for the feature name everywhere (scripts, state, runtime files); the task id is always `T1`.
+
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. A `#<n>` argument is refused: there are no issues to read; ask for a description instead. Step 5's issue is `local` (write `Issue: local`). The branch follows `naming.task_branch` with `{feature_slug}` = `<slug>`. Without `<remote>`, cut the task from the local `<base>` and push nothing. Step 8: on a squash merge the user tells you, and you run `${CLAUDE_PLUGIN_ROOT}/scripts/mark-merged.sh <Branch>`.
 
 ## 1. Preconditions
 

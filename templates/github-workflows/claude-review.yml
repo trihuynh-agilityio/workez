@@ -15,7 +15,7 @@ concurrency:
 jobs:
   review:
     # pull_request: trusted authors, not drafts, not forks, and only PRs into a feat/ branch
-    # (a feature branch merging into dev is not reviewed automatically).
+    # (a feature branch merging into the base branch is not reviewed automatically).
     # issue_comment: PR comments containing "@claude review" from trusted users.
     if: >
       (github.event_name == 'pull_request' &&

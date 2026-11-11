@@ -9,7 +9,8 @@
 
 set -euo pipefail
 source "$(dirname "$0")/lib/config.sh"
-repo="$(cfg .github.repo)"; remote="$(cfg .github.remote)"
+wf_local && { echo "publish-evidence: the local tracker keeps evidence local; list its files in the merge request text instead" >&2; exit 2; }
+repo="$(cfg .github.repo)"; remote="$(wf_remote)"
 
 task="${1:-}"; dir="${2:-}"; base="${3:-}"
 [[ -n "$task" && -d "$dir" && -n "$base" ]] || { echo "usage: publish-evidence.sh <task-id> <evidence-dir> <integration-branch>" >&2; exit 2; }

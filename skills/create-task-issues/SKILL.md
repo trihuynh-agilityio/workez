@@ -11,6 +11,11 @@ One sub-issue per task of `<docs_dir>/<feature-name>/plan.md`, linked to the fea
 
 Argument: `<feature-name>`, the folder under `<docs_dir>`.
 
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. Step 3's batch returns `local` for each task; the task-list comment names the tasks by id (`T1`, `T2` ...) and goes to the feature's local log. In step 4, `Issue: pending` becomes `Issue: local`; `Branch:` and `PR title:` have no placeholder to replace. Commit the plan with the feature folder name as the issue number.
+
 ## 1. Check the plan
 
 Read `<docs_dir>/<feature-name>/plan.md`.

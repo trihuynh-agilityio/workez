@@ -14,7 +14,7 @@ Arguments: `<feature-name> <task-id>`, for example `saved-searches T4`.
 
 ## Paths
 
-- Settings: `<project root>/.claude/workflow.json` (`docs_dir`, `github.remote` as `<remote>`, `branches.base` as `<base>`). The **project folder** of a worktree is the worktree root plus the project's path inside the repository (`git -C <project root> rev-parse --show-prefix`; empty at the root).
+- Settings: `<project root>/.claude/workflow.json` (`docs_dir`, `remote` (else `github.remote`) as `<remote>`; when it is `""`, `<remote>/<x>` is the local `<x>`, `branches.base` as `<base>`). The **project folder** of a worktree is the worktree root plus the project's path inside the repository (`git -C <project root> rev-parse --show-prefix`; empty at the root).
 - Project root: the folder that holds `.claude/workflow.json` and `<docs_dir>`. Plan: `<project root>/<docs_dir>/<feature-name>/plan.md`, or `plan-fix.md` next to it when the task id is defined there (a fix task added by `workez:verify-feature`); that file is the plan path below. Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (they find the project from the current folder, a worktree included; run from elsewhere, prefix `WF_PROJECT=<project root>`).
 - Read the task's block in the plan. Its `Branch:` gives the worktree: `<repo root>/.claude/worktrees/<branch with / replaced by ->`. Its `PR target:` is the integration branch.
 - In the worktree, work from its project folder. The report is `<docs_dir>/<feature-name>/reviews/<task-id>.md` there.

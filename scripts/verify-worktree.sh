@@ -20,7 +20,7 @@ action="${1:-}"; feature="${2:-}"; branch="${3:-}"
   echo "usage: verify-worktree.sh create <feature-name> <integration-branch> | remove <feature-name>" >&2; exit 2; }
 
 top="$WF_TOP"
-remote="$(cfg .github.remote)"; base="$(cfg .branches.base)"
+remote="$(wf_remote)"; base="$(cfg .branches.base)"
 wt="$top/.claude/worktrees/verify-$feature"
 tmp_branch="verify/$feature"
 [[ "$wt" == "$top/.claude/worktrees/verify-"* ]] || { echo "verify-worktree: bad path $wt" >&2; exit 2; }
@@ -41,8 +41,9 @@ fi
 why="$(wf_branch_ok "$branch")" || { echo "verify-worktree: integration $why" >&2; exit 2; }
 remove   # idempotent: start from nothing
 
-git -C "$top" fetch -q "$remote" "$base"
-git -C "$top" fetch -q "$remote" "$branch:$branch" 2>/dev/null || {
+# Without a remote (local tracker) the local base and integration branches are the truth.
+wf_fetch "$base"
+[[ -z "$remote" ]] || git -C "$top" fetch -q "$remote" "$branch:$branch" 2>/dev/null || {
   # Refused when the local branch is ahead or diverged; only fine if it is not behind the remote.
   git -C "$top" merge-base --is-ancestor "$remote/$branch" "$branch" 2>/dev/null ||
     { echo "verify-worktree: local $branch cannot be fast-forwarded to $remote/$branch" >&2; exit 1; }
@@ -50,14 +51,14 @@ git -C "$top" fetch -q "$remote" "$branch:$branch" 2>/dev/null || {
 
 git -C "$top" worktree add -q -b "$tmp_branch" "$wt" "$branch"
 integration_head="$(git -C "$wt" rev-parse HEAD)"
-base_head="$(git -C "$top" rev-parse "$remote/$base")"
+base_head="$(git -C "$top" rev-parse "$(wf_ref "$base")")"
 merged=no
 if ! git -C "$wt" merge-base --is-ancestor "$base_head" HEAD; then
   if git -C "$wt" merge --no-edit -q "$base_head" >/dev/null 2>&1; then
     merged=yes
   else
     git -C "$wt" merge --abort 2>/dev/null || true
-    echo "CONFLICT merging $remote/$base ($base_head) into $branch; not resolved here" >&2
+    echo "CONFLICT merging $(wf_ref "$base") ($base_head) into $branch; not resolved here" >&2
     remove
     exit 3
   fi
