@@ -1,4 +1,5 @@
 {
+  "tracker": "github",
   "github": {
     "repo": "acme/shop",
     "remote": "origin",

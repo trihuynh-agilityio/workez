@@ -79,4 +79,26 @@ mkdir -p "$P/.claude/hooks" && touch "$P/.claude/hooks/next-phase.sh"
 out="$(cd "$T/other" && bash "$SRC/scripts/doctor.sh" --offline 2>&1)"; rc=$?
 [[ $rc == 1 && "$out" == *"FAIL  workflow.json"*"/workez:setup"* ]] && ok "doctor: no workflow.json fails with a hint" || ko "doctor no config: $rc $out"
 
+# Local tracker: no github block, no remote, no gh.
+git init -q -b dev "$T/loc"; mkdir -p "$T/loc/.claude"
+jq 'del(.github) | .tracker = "local" | .remote = "" | .naming.integration_branch = "feat/{feature_slug}"
+  | .naming.task_branch = "{task_type}/{feature_slug}-{task_slug}" | .naming.task_pr_title = "{task_type}{task_scope}: {task_title}"
+  | .commands = {"install": [{"dir": ".", "run": "true"}], "test": [{"dir": ".", "run": "true"}], "acceptance": {"dir": ".", "run": "true"}}
+  | .format = [] | .dev_servers = []' "$SRC/templates/workflow.example.json" >"$T/loc/.claude/workflow.json"
+git -C "$T/loc" commit -q --allow-empty -m init
+(cd "$T/loc" && bash "$SRC/scripts/setup-project.sh" >/dev/null) && s="$T/loc/.claude/settings.json" \
+  && jq -e '(.permissions.allow | map(select(startswith("Bash(gh ") or startswith("Bash(git push") or startswith("Bash(git fetch"))) | length == 0)
+    and (.permissions.deny | index("Bash(git merge *)"))' "$s" >/dev/null \
+  && ok "setup local: no gh, push or fetch rules without a remote; deny rules kept" || ko "setup local: $(jq -c .permissions "$T/loc/.claude/settings.json" 2>&1)"
+mkdir -p "$T/nogh" && for t in git jq curl lsof node npx bash; do p="$(command -v $t)" && ln -sf "$p" "$T/nogh/$t"; done
+for t in awk sed grep tr sort uniq head cut dirname basename cat wc date mktemp env; do p="$(command -v $t)" && ln -sf "$p" "$T/nogh/$t"; done
+out="$(cd "$T/loc" && PATH="$T/nogh" bash "$SRC/scripts/doctor.sh" 2>&1)"
+[[ "$out" == *"OK    tracker"*"local"* && "$out" == *"OK    gh"*"not needed"* && "$out" == *"OK    workflow.json keys"* \
+  && "$out" == *"OK    local naming"* && "$out" == *"OK    git remote"*"none"* && "$out" == *"OK    base branch"*"dev (local)"* \
+  && "$out" != *"FAIL  gh"* && "$out" != *"gh auth"* ]] \
+  && ok "doctor local: no gh, no github keys, no remote" || ko "doctor local: $out"
+jq '.naming.task_branch = "{task_type}/{task_issue}-{task_slug}"' "$T/loc/.claude/workflow.json" >"$T/l.json" && cp "$T/l.json" "$T/loc/.claude/workflow.json"
+[[ "$(cd "$T/loc" && bash "$SRC/scripts/doctor.sh" 2>&1)" == *"FAIL  local naming"*task_branch* ]] \
+  && ok "doctor local: issue placeholders fail" || ko "doctor local naming"
+
 done_tests

@@ -88,14 +88,14 @@ Check these before you install; `/workez:doctor` checks them for you afterwards.
 |---|---|---|
 | Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build and verify watches (they run only while the session is open, for up to 7 days) |
 | `git` | 2.42+ | worktrees per task (`worktree add --orphan` for the evidence branch) |
-| `gh` | signed in (`gh auth login`) | issues, sub-issues, labels, PRs |
+| `gh` | signed in (`gh auth login`); not needed with the local tracker | issues, sub-issues, labels, PRs |
 | `jq` | 1.6+ | every script reads `workflow.json` with it |
 | `bash` | 3.2+ | scripts and hooks (the macOS default works) |
 | `curl`, `lsof` | any | dev server readiness and ports |
 | Node.js + `npx` | 18+ | the two Playwright MCP servers (`@playwright/mcp`) |
 | Google Chrome | any | the UI checks run headless Chrome (`npx playwright install chrome` if missing) |
 
-**On GitHub**
+**On GitHub** (not needed with the local tracker, see below)
 
 - The repository's issues are enabled, and your account can write to it (push branches, create labels, issues and PRs).
 - Sub-issues are available (github.com has them).
@@ -103,10 +103,15 @@ Check these before you install; `/workez:doctor` checks them for you afterwards.
 
 **In the project**
 
-- A git repository with a remote that points at that GitHub repository, and the base branch pushed to it.
+- A git repository with a remote that points at that GitHub repository, and the base branch pushed to it (with the local tracker: any remote, or none).
+- A base branch for features: `branches.base`, `dev` by default and set to any name during setup.
 - `CLAUDE.md` describing the stack, the rules and how to run one test: every phase reads it.
 - Commands for install, build, lint, format check and test, a way to run given test files with a JSON report (acceptance), and, for UI checks, a dev server that can start on two separate sets of ports.
 - No copy of the plugin's hooks or scripts in the project's own `.claude/` (the hooks would run twice).
+
+**No GitHub? The local tracker**
+
+Projects on GitLab, another host, or with no remote at all set `"tracker": "local"` in `workflow.json` (`/workez:setup` suggests it when `gh` or a GitHub remote is missing). Every phase runs the same, with no `gh`: features and their phase are tracked in `.claude/workflow/`, branches and titles carry no issue numbers (`feat/<feature>`, `<type>/<feature>-<task>`), and each task "PR" is a merge request file with a ready-made title, description and, on GitLab, a "new merge request" link. You open and merge the merge requests on your host; the build reads the merges from git and starts the next wave. After a squash merge, say "T3 is merged" (or run `scripts/mark-merged.sh <feature> T3`). Without a remote, the file holds the `git merge` command for you to run. What you give up: PR review feedback and failed CI checks are not read automatically, and screenshots stay local. Details: "Local tracker" in `WORKFLOW.md`.
 
 ## Install
 
