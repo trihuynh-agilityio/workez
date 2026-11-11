@@ -19,6 +19,11 @@ Arguments: `<feature-name> <task-id>`, for example `saved-searches T4`.
 - Read the task's block in the plan: `Branch:` (the head), `PR target:` (the base, the integration branch), `PR title:`, `Issue:`, `Covers:`, and whether it has a `UI check:`.
 - The worktree is `<repo root>/.claude/worktrees/<branch with / replaced by ->`. Work from its project folder.
 
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. Step 4: push only when `<remote>` is set. Step 5: no `Refs #` line, and do not run `publish-evidence.sh`: after the `result.md` content, list the screenshots by their local paths under `### Screenshots` for the user to attach. Step 6: line 2 of the batch changes nothing and may be left out. Step 7: report the merge request file (the URL), its `OPEN_MR=` link when one was printed, the title and the target branch, and tell the user to open the merge request on their host and merge it (or, without a remote, to run the `git merge` command in the file).
+
 ## 1. Keep the UI evidence local
 
 Never commit anything from `<docs_dir>/<feature-name>/evidence/`, not even `result.md`. The gate reads `result.md` from the worktree, and step 5 puts its content and the screenshots in the PR description.

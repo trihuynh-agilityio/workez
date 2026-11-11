@@ -5,7 +5,7 @@
 # while it is untracked, so pass its path.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
-docs="$(cfg .docs_dir)"; remote="$(cfg .github.remote)"
+docs="$(cfg .docs_dir)"; remote="$(wf_remote)"
 
 task="${1:-}"
 plan="${2:-}"
@@ -67,8 +67,12 @@ if grep -q '^- \*\*UI check\*\*' <<<"$block"; then
   fi
 fi
 
-# 6. The PR base must exist on GitHub.
-git ls-remote --exit-code --heads "$remote" "$base" >/dev/null 2>&1 || bad "base branch $base is not on the $remote remote; push it first (it is never pushed from here)"
+# 6. The PR base must exist on the remote (locally when the project has none).
+if [[ -n "$remote" ]]; then
+  git ls-remote --exit-code --heads "$remote" "$base" >/dev/null 2>&1 || bad "base branch $base is not on the $remote remote; push it first (it is never pushed from here)"
+else
+  git rev-parse --verify -q "refs/heads/$base" >/dev/null || bad "base branch $base does not exist"
+fi
 
 if ((fail)); then
   echo "check-pr-ready $task: NOT READY" >&2

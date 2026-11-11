@@ -9,6 +9,11 @@ allowed-tools: Bash(ls *) Read Write Glob Grep Agent
 
 A plan turns an approved spec into small tasks grouped in waves that the build phase can run in parallel, with the proof for each requirement and the rules the build phase must follow. It only writes the plan; it builds nothing. It is short and concrete. Every requirement in the spec is traceable to a task and a test.
 
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. `find-issue` returns the feature folder name as the number. `naming` has no `{task_issue}`, so `Branch:` and `PR title:` are written complete, with no `<sub-issue>` placeholder; fill `{feature_slug}` with the feature folder name. `Issue:` stays `pending` until `workez:create-task-issues`.
+
 ## 1. Collect the inputs
 
 - **Intent and spec**: the `intent.md` and `spec.md` the plan answers. Take them from the request (a feature folder name such as `saved-searches` means `<docs_dir>/<feature-name>/`). If the request names none, run `ls <docs_dir>/` and ask which folder. If the folder has no `spec.md`, stop and offer to run `workez:write-spec` first.

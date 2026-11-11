@@ -2,6 +2,7 @@
 # Commits approved feature docs (intent.md, spec.md, plan.md) to the feature's integration branch,
 # without touching the current checkout. Nothing here is ever pushed: build-feature pushes the branch.
 #   commit-feature-doc.sh <feature-name> <feature-issue-number> <doc>...
+# With the local tracker the feature issue "number" is the feature name (what local-ops.sh returns).
 # <doc> is a file name inside <docs_dir>/<feature-name>/ (intent.md, spec.md, plan.md).
 # The branch name comes from naming.integration_branch in workflow.json. If it is missing, it is
 # created from the freshly fetched <remote>/<base branch> (never a stale local copy, never another branch).
@@ -12,10 +13,11 @@ set -euo pipefail
 source "$(dirname "$0")/lib/config.sh"
 
 feature="${1:-}"; issue="${2:-}"; shift 2 2>/dev/null || true
-[[ "$feature" =~ ^[a-z0-9][a-z0-9-]*$ && "$issue" =~ ^[0-9]+$ && $# -gt 0 ]] || {
+issue_ok() { [[ "$issue" =~ ^[0-9]+$ ]] || { wf_local && [[ "$issue" == "$feature" ]]; }; }
+[[ "$feature" =~ ^[a-z0-9][a-z0-9-]*$ && $# -gt 0 ]] && issue_ok || {
   echo "usage: commit-feature-doc.sh <feature-name> <feature-issue-number> <doc>..." >&2; exit 2; }
 
-remote="$(cfg .github.remote)"; base="$(cfg .branches.base)"
+base="$(cfg .branches.base)"
 branch="$(wf_fill "$(cfg .naming.integration_branch)" feature_issue="$issue" feature_slug="$feature")"
 wt="$(wf_worktree_path "$branch")"
 docs="$(cfg .docs_dir)/$feature"
@@ -26,8 +28,8 @@ done
 [[ -e "$wt" ]] && { echo "commit-feature-doc: $wt already exists" >&2; exit 2; }
 
 if ! git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$branch"; then
-  git -C "$WF_TOP" fetch -q "$remote" "$base"
-  git -C "$WF_TOP" branch --no-track "$branch" "$remote/$base"
+  wf_fetch "$base"
+  git -C "$WF_TOP" branch --no-track "$branch" "$(wf_ref "$base")"
 fi
 git -C "$WF_TOP" worktree add --quiet "$wt" "$branch"
 trap 'git -C "$WF_TOP" worktree remove --force "$wt"' EXIT

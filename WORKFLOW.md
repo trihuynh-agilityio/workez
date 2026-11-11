@@ -54,11 +54,26 @@ Task ids (`T1`, `T2`) are keys inside the plan, the review reports (`<docs_dir>/
 5. **Commit** `.claude/workflow.json` and `.claude/settings.json`, then `/reload-plugins`.
 6. **Check**: `/workez:doctor` reports no `FAIL`.
 
+## Local tracker (no GitHub)
+
+With `"tracker": "local"` in `workflow.json` the workflow needs no `gh` and no GitHub: the project can live on GitLab, another host, or have no remote at all. Every skill keeps its steps, with these differences, which win over anything a skill says about GitHub:
+
+- **Remote.** `<remote>` is the top-level `remote` key (else `github.remote`). It may be `""`: then nothing is fetched, pushed or checked with `ls-remote`, and `<remote>/<branch>` means the local `<branch>`.
+- **Tracking.** `workez:github-ops` runs `scripts/local-ops.sh` instead of `gh`. The feature issue "number" is the feature folder name, its labels and comments live in `.claude/workflow/<feature>/tracker.json` and `log.md`. A task's `Issue:` is `local`, never a number. Task-level labels and closes change nothing. A pull request is a merge request record named by its head branch, and its URL is the text file `.claude/workflow/local-mr/<branch>.md` (title, branches, description, and a "new merge request" link when the remote is GitLab).
+- **Naming.** No issue numbers: branches use `{feature_slug}` and `{task_slug}` (for example `feat/{feature_slug}` and `{task_type}/{feature_slug}-{task_slug}`), titles have no `(#n)`, and commits get no `Refs:` footer.
+- **Merge requests.** The workflow pushes the task branch (with a remote) and writes the merge request file; the user opens the merge request on their host from that file and merges it. Without a remote the file holds the `git merge` command for the user to run; Claude never merges.
+- **Merged or not.** `get-pr-state` and the watch read git: a branch whose commits are in its target branch is MERGED. A squash or rebase merge leaves no trace git can see, so the user marks it: they say so in chat ("T3 is merged") and the skill runs `scripts/mark-merged.sh <feature> <task-id>` (`--closed` for a merge request closed without merge).
+- **No feedback, no CI.** There is no PR feedback or check to read, so the feedback and failed-check rounds (build-feature step 4b) never start. Review comments made on the host reach the workflow only when the user pastes them in chat; handle them as `get-pr-feedback` items.
+- **Evidence** stays local: `publish-evidence.sh` is not run; the merge request text lists the UI check result and the paths of its screenshots for the user to attach.
+- **Not available:** `build-task #<n>` (there are no issues to read), and the `claude-review.yml` CI reviewer.
+
 ## `workflow.json` reference
 
 | Key | Meaning |
 |---|---|
-| `github.repo` | `owner/name` of the GitHub repository for issues and PRs |
+| `tracker` | `github` (the default when absent) or `local` (see "Local tracker") |
+| `remote` | the git remote the workflow pushes to and fetches from; `""` for none (local tracker only). When absent, `github.remote` |
+| `github.repo` | `owner/name` of the GitHub repository for issues and PRs (GitHub tracker only) |
 | `github.remote` | the git remote that points at it (pushes, fetches) |
 | `github.feedback_authors` | PR feedback the build acts on comes only from these logins |
 | `github.review_trigger` | the comment a user posts on a PR to ask the review bot for a review by hand; the workflow never posts it, and drops such comments from PR feedback. `""` for none |

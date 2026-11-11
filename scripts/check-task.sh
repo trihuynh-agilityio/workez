@@ -10,7 +10,7 @@
 # the size limits; they must still be in the task's Files list.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
-docs="$(cfg .docs_dir)"; remote="$(cfg .github.remote)"
+docs="$(cfg .docs_dir)"; remote="$(wf_remote)"
 max_lines="$(cfg .task_limits.max_lines)"; max_files="$(cfg .task_limits.max_files)"
 
 task="${1:-}"
@@ -38,13 +38,13 @@ acceptance="$(grep -m1 -i '^- Implementer tasks never edit' "$plan" | ticks)"
 [[ "$branch" != *"<"* ]] || { echo "check-task: $task has no sub-issue number in Branch yet ($branch)" >&2; exit 2; }
 
 base_ref=""
-for r in "$base" "$remote/$base"; do
+for r in "$base" "$(wf_ref "$base")"; do
   git rev-parse --verify -q "$r^{commit}" >/dev/null && { base_ref="$r"; break; }
 done
-[[ -n "$base_ref" ]] || { echo "check-task: base branch $base not found (locally or as $remote/$base)" >&2; exit 2; }
+[[ -n "$base_ref" ]] || { echo "check-task: base branch $base not found (locally or as $(wf_ref "$base"))" >&2; exit 2; }
 # A local copy behind the remote one (the base branch of a standalone task, cut from <remote>/<base>)
 # would count other commits as the task's: compare with the remote one then.
-if [[ "$base_ref" == "$base" ]] && git rev-parse --verify -q "$remote/$base^{commit}" >/dev/null &&
+if [[ -n "$remote" && "$base_ref" == "$base" ]] && git rev-parse --verify -q "$remote/$base^{commit}" >/dev/null &&
   git merge-base --is-ancestor "$base" "$remote/$base" 2>/dev/null; then
   base_ref="$remote/$base"
 fi
