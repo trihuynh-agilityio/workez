@@ -8,6 +8,11 @@ allowed-tools: Skill Read Glob Bash(git config *) Bash(date *) Bash(ls *) Bash(m
 
 Phase 1 of the feature workflow: idea, then intent, then a tracked issue. It chains existing skills and adds no design, spec, plan or code. Stop after the issue.
 
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. The feature issue number that `create-issue` returns is the feature folder name; pass it as the issue number to `commit-feature-doc.sh`. Its URL is `-`.
+
 ## 1. Grill the idea
 
 Invoke the `grill-me` skill (the `grilling` skill of the `mattpocock-skills` plugin) on the user's idea. Ask the questions as `AskUserQuestion` pickers, one round at a time, with your recommended answer first. Read `README.md` and `CLAUDE.md` first so no question asks what the repo already answers. Stop when the user confirms a shared understanding.

@@ -2,7 +2,7 @@
 name: verify-feature
 description: Phase 4 (Verify), started by the Stop hook when build-feature finishes (or run by hand) after every task PR of a feature is merged into the integration branch and the final PR to the base branch exists. Verifies the WHOLE feature on a throwaway worktree (merged with the base branch locally): mechanical checks, feature E2E, an AC table, a whole-feature review, then writes verification.md (local only, posted to the feature issue) and a PASS or FAIL verdict. On FAIL it reports the failure, writes plan-fix.md from the failed items and, after your approval, creates the fix issues and starts the fix build. On PASS it watches the final PR and, once you merge it, clears the feature's local data (local branches, worktrees, state, evidence) and labels the feature issue phase:done; the issue stays open. Run with the feature folder name; add --dry-run to print what each step would do without writing anything. Re-run any time.
 model: opus
-allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(git status*) Bash(git log*) Bash(git diff*) Bash(git show *) Bash(git rev-parse *) Bash(git branch*) Bash(git merge-base *) Bash(git ls-remote *) Bash(git worktree *) Bash(*/scripts/build-position.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/verify-worktree.sh *) Bash(*/scripts/verify-checks.sh *)
+allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(git status*) Bash(git log*) Bash(git diff*) Bash(git show *) Bash(git rev-parse *) Bash(git branch*) Bash(git merge-base *) Bash(git ls-remote *) Bash(git worktree *) Bash(*/scripts/build-position.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/verify-worktree.sh *) Bash(*/scripts/verify-checks.sh *)
 ---
 
 # Verify a feature
@@ -20,6 +20,11 @@ Arguments: `<feature-name> [--dry-run]`. With `--dry-run`, run only the read-onl
 - Fix tasks: `<project root>/<docs_dir>/<feature-name>/plan-fix.md` (see Failure handling); `plan.md` is never edited here.
 - Requirements: the plan's `### AC coverage` and `### Test plan` tables. The intent has no numbered ACs; the requirement ids (R1…) are in `spec.md`, and each one is an AC here. Task heading and `Covers:` come from the plan.
 - Commands: `commands` in `.claude/workflow.json`. If one is missing, stop and ask.
+
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. Comments go to the feature's local log, and `append-pr-section` appends to the final merge request file. Step 8 watches the final merge request with git; if the user merged it with a squash, run `${CLAUDE_PLUGIN_ROOT}/scripts/mark-merged.sh <integration branch>`. Fix tasks get `Issue: local`.
 
 ## 1. Preconditions
 

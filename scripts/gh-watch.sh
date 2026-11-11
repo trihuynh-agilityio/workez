@@ -17,11 +17,11 @@
 # Exit: 0 nothing new, 10 a MERGED or CLOSED PR not in --settled (wins over 20),
 #       20 new feedback, a failed check or a conflict, 2 usage or gh error.
 
+# Local tracker ("tracker": "local"): no gh. Fetches the remote once (when there is one), takes each
+# branch's state from local-ops.sh get-pr-state (git ancestry, or mark-merged.sh), and uses the branch
+# as the PR id; there is never FEEDBACK, CHECKS or CONFLICT, so the exit is 0 or 10.
+
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
-repo="$(cfg .github.repo)"
-[[ -n "$repo" ]] || { echo "gh-watch: github.repo is missing in $WF_CONFIG" >&2; exit 2; }
-authors="$(jq -c '.github.feedback_authors // []' "$WF_CONFIG")"
-trigger="$(jq -c '.github.review_trigger // ""' "$WF_CONFIG")"
 pairs=(); handled=","; settled=","; feedback=1
 usage="usage: gh-watch.sh <branch:issue>... [--handled <ids>] [--settled <prs>] [--no-feedback]"
 while (($#)); do
@@ -34,6 +34,28 @@ while (($#)); do
   esac
 done
 ((${#pairs[@]})) || { echo "$usage" >&2; exit 2; }
+
+if wf_local; then
+  git -C "$WF_TOP" fetch -q --prune "$(wf_remote)" 2>/dev/null || [[ -z "$(wf_remote)" ]] \
+    || { echo "gh-watch: git fetch $(wf_remote) failed" >&2; exit 2; }
+  settled_new=0
+  for pair in "${pairs[@]}"; do
+    branch="${pair%:*}"; issue="${pair##*:}"
+    row="$("$(dirname "${BASH_SOURCE[0]}")/local-ops.sh" get-pr-state "$branch")" \
+      || { echo "gh-watch: local-ops get-pr-state failed for $branch" >&2; exit 2; }
+    read -r _ state _ <<<"$row"
+    if [[ "$state" == NONE ]]; then echo "STATE $branch NONE - $issue"; continue; fi
+    echo "STATE $branch $state $branch $issue"
+    [[ "$state" == MERGED || "$state" == CLOSED ]] && [[ "$settled" != *",$branch,"* ]] && settled_new=1
+  done
+  ((settled_new)) && exit 10
+  exit 0
+fi
+
+repo="$(cfg .github.repo)"
+[[ -n "$repo" ]] || { echo "gh-watch: github.repo is missing in $WF_CONFIG" >&2; exit 2; }
+authors="$(jq -c '.github.feedback_authors // []' "$WF_CONFIG")"
+trigger="$(jq -c '.github.review_trigger // ""' "$WF_CONFIG")"
 
 # jq filter shared by the three feedback endpoints; prints "<id> <author>". gh -q takes no jq
 # arguments, so the config values go in as JSON literals.

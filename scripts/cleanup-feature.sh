@@ -29,7 +29,7 @@ while (($#)); do
 done
 [[ "$feature" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "usage: cleanup-feature.sh <feature> [--task <task-id>] [--dry-run]" >&2; exit 2; }
 
-remote="$(cfg .github.remote)"
+remote="$(wf_remote)"
 base="$(cfg .branches.base)"
 docs="$WF_PROJECT/$(cfg .docs_dir)/$feature"
 runtime="$WF_PROJECT/.claude/workflow"
@@ -45,16 +45,29 @@ tasks="$(awk '
 ' "${plans[@]}")"
 integration="$(grep -h -m1 '^- \*\*PR target\*\*:' "${plans[@]}" | head -1 | sed -E 's/^[^`]*`([^`]*)`.*/\1/')"
 [[ -n "$integration" ]] || { echo "cleanup-feature: no PR target in the plan" >&2; exit 2; }
-git -C "$WF_TOP" fetch -q "$remote" "$integration" 2>/dev/null
-int_ref="$remote/$integration"
+wf_fetch "$integration" 2>/dev/null
+int_ref="$(wf_ref "$integration")"
 git -C "$WF_TOP" rev-parse -q --verify "$int_ref" >/dev/null || int_ref="$integration"
-git -C "$WF_TOP" fetch -q "$remote" "$base" 2>/dev/null
-base_ref="$remote/$base"
+wf_fetch "$base" 2>/dev/null
+base_ref="$(wf_ref "$base")"
+
+# marked <branch>: the local tracker's merge request for it was marked merged (mark-merged.sh: a
+# squash merge, which leaves no ancestry).
+mr_file() { printf '%s/local-mr/%s' "$runtime" "${1//\//-}"; }
+marked() { wf_local && [[ "$(jq -r '.state // empty' "$(mr_file "$1").json" 2>/dev/null)" == merged ]]; }
 
 # merged <branch>: the integration branch or the base contains it.
 merged() {
   git -C "$WF_TOP" merge-base --is-ancestor "$1" "$int_ref" 2>/dev/null ||
-    git -C "$WF_TOP" merge-base --is-ancestor "$1" "$base_ref" 2>/dev/null
+    git -C "$WF_TOP" merge-base --is-ancestor "$1" "$base_ref" 2>/dev/null || marked "$1"
+}
+
+# drop_mr <branch>: the local tracker's merge request record, once it is MERGED or CLOSED.
+drop_mr() {
+  wf_local && [[ -f "$(mr_file "$1").json" ]] || return 0
+  case "$("$WF_HOME/scripts/local-ops.sh" get-pr-state "$1" | cut -f2)" in
+    MERGED | CLOSED) act "merge request record $1" rm -f "$(mr_file "$1").json" "$(mr_file "$1").md" ;;
+  esac
 }
 
 say() { echo "$1 $2${3:+ ($3)}"; }
@@ -101,6 +114,7 @@ while read -r id branch; do
   [[ -z "$only_task" || "$id" == "$only_task" ]] || continue
   found=1
   drop_task "$branch"
+  drop_mr "$branch"
 done <<<"$tasks"
 [[ -z "$only_task" || $found == 1 ]] || { echo "cleanup-feature: task $only_task not in the plan" >&2; exit 2; }
 [[ -n "$only_task" ]] && exit 0
@@ -117,16 +131,17 @@ jq -e --arg b "$integration" '.branches.protected // [] | index($b)' "$WF_CONFIG
 if ((standalone)); then :
 elif drop_worktree "$(wf_worktree_path "$integration")" &&
   git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$integration"; then
-  if git -C "$WF_TOP" merge-base --is-ancestor "$integration" "$base_ref" 2>/dev/null; then
+  if git -C "$WF_TOP" merge-base --is-ancestor "$integration" "$base_ref" 2>/dev/null || marked "$integration"; then
     act "branch $integration" git -C "$WF_TOP" branch -D "$integration"
   else say KEPT "branch $integration" "not contained in $base_ref: final PR not merged, or squash-merged"; fi
 fi
+((standalone)) || drop_mr "$integration"
 evidence_branch="$integration-evidence"
 ((standalone)) && evidence_branch="$(head -1 <<<"$tasks" | cut -d' ' -f2)-evidence"
 if drop_worktree "$(wf_worktree_path "$evidence_branch")" &&
   git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$evidence_branch"; then
   # The evidence branch is only a local copy of what was pushed; keep it if it has unpushed commits.
-  if git -C "$WF_TOP" merge-base --is-ancestor "$evidence_branch" "$remote/$evidence_branch" 2>/dev/null; then
+  if [[ -n "$remote" ]] && git -C "$WF_TOP" merge-base --is-ancestor "$evidence_branch" "$remote/$evidence_branch" 2>/dev/null; then
     act "branch $evidence_branch" git -C "$WF_TOP" branch -D "$evidence_branch"
   else say KEPT "branch $evidence_branch" "not pushed to $remote"; fi
 fi

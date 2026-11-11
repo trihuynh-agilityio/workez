@@ -2,7 +2,7 @@
 name: build-feature
 description: Phase 3 (Build) orchestrator, started by the Stop hook right after create-task-issues, or run by hand to resume. Use it only for a feature whose plan is approved and has sub-issues. Runs an approved, issue-linked plan wave by wave (one pipeline per task, two lanes in parallel), waits for the user to merge each wave's PRs and then starts the next wave on its own, and finally opens the PR to the base branch. Run with the feature folder name. Re-run it any time; it resumes from GitHub state.
 model: opus
-allowed-tools: Read Write Edit Glob Grep Agent CronCreate CronList CronDelete Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/build-position.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
+allowed-tools: Read Write Edit Glob Grep Agent CronCreate CronList CronDelete Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/build-position.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
 ---
 
 # Build a feature
@@ -16,6 +16,11 @@ Argument: `<feature-name>`, the folder under `<docs_dir>`.
 - Settings: `<project root>/.claude/workflow.json`. Below, `<docs_dir>` is its `docs_dir`, `<remote>` is `github.remote`, `<base>` is `branches.base`, and the commands are its `commands` (each runs in its `dir`). The **project folder** of a worktree is the worktree root plus the project's path inside the repository (`git -C <project root> rev-parse --show-prefix`; empty when the project is the repository root).
 - Project root: the folder that holds `.claude/workflow.json` and `<docs_dir>`. Plan: `<project root>/<docs_dir>/<feature-name>/plan.md`. Fix tasks: `plan-fix.md` next to it, written by `workez:verify-feature` after a FAIL (its tasks already have issues). A task's **plan path** is always the absolute path of the `plan=` file `build-position.sh` prints for it, so a fix task gets `plan-fix.md` everywhere (lane, implementer, reviewer, UI verifier, gates). Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (they find the project from the current folder, a worktree included; run from elsewhere, prefix `WF_PROJECT=<project root>`). State: `<project root>/.claude/workflow/<feature-name>/state.json`.
 - Integration branch: the `PR target:` of the tasks (named by `naming.integration_branch`). Repo root worktrees: `<repo root>/.claude/worktrees/`.
+
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. Preconditions: no task has `Issue: pending` (`local` is ready). Without `<remote>`, skip every fetch, `ls-remote` and push, and cut the integration branch from the local `<base>`. Step 4: the watch can only see merges; step 4b never runs unless the user pastes review comments in chat. When the user says a task's merge request was merged and the watch still shows it OPEN (a squash merge), run `${CLAUDE_PLUGIN_ROOT}/scripts/mark-merged.sh <feature-name> <task-id>` and run step 2 again. Step 5: the final pull request is a merge request file for the integration branch into `<base>`; give the user its path and link.
 
 ## 1. Preconditions
 

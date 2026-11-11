@@ -11,6 +11,11 @@ Phase 2 of the feature workflow: approved intent, then an approved spec, then th
 
 Argument: `<feature-name>`, the folder under `<docs_dir>`.
 
+
+## Local tracker
+
+With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in `${CLAUDE_PLUGIN_ROOT}/WORKFLOW.md`; it wins over the GitHub wording below. `find-issue` returns the feature folder name as the number; pass it to `commit-feature-doc.sh`. The comment goes to the feature's local log.
+
 ## 1. Check the input
 
 Read `<docs_dir>/<feature-name>/intent.md`. If line 2 does not say `Status: approved.`, stop and tell the user to finish Phase 1 (`/plan-feature`). Never edit the intent.

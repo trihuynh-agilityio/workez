@@ -128,8 +128,25 @@ EOF
 out="$("$SRC/scripts/mark-merged.sh" demo T2)"
 [[ "$out" == "fix/demo-typo MERGED" && "$(ops get-pr-state fix/demo-typo)" == *MERGED* ]] && ok "mark-merged: by feature and task id" || ko "mark-merged: $out"
 
+# 4a. cleanup: a squash-merged (marked) task branch goes, with its merge request record
+git switch -q dev
+out="$("$SRC/scripts/cleanup-feature.sh" demo --task T2)"
+[[ "$out" == *"REMOVED branch fix/demo-typo"* && "$out" == *"REMOVED merge request record fix/demo-typo"* ]] \
+  && ! git show-ref -q --verify refs/heads/fix/demo-typo && [[ ! -f .claude/workflow/local-mr/fix-demo-typo.json ]] \
+  && ok "cleanup: marked squash merge removes the branch and the record" || ko "cleanup: $out"
+ops get-pr-state fix/demo-typo >/dev/null   # NONE now; the build-position check below uses its own states
+printf 'fix/demo-typo\tMERGED\tfix/demo-typo\n' >"$T/typo.tsv"
+
+# 4b. gh-watch in local mode: no gh, exit 10 for a newly merged branch, 0 once settled
+out="$("$SRC/scripts/gh-watch.sh" feat/demo-notes:local)"; rc=$?
+[[ $rc == 10 && "$out" == *"STATE feat/demo-notes MERGED feat/demo-notes local"* ]] && ok "gh-watch local: exit 10 on a new merge" || ko "gh-watch local: $rc $out"
+"$SRC/scripts/gh-watch.sh" feat/demo-notes:local --settled feat/demo-notes >/dev/null; rc=$?
+[[ $rc == 0 ]] && ok "gh-watch local: exit 0 when settled" || ko "gh-watch settled: $rc"
+out="$("$SRC/scripts/gh-watch.sh" chore/demo-none:local)"
+[[ "$out" == "STATE chore/demo-none NONE - local" ]] && ok "gh-watch local: NONE" || ko "gh-watch NONE: $out"
+
 # 5. build-position accepts Issue: local
-ops get-pr-state feat/demo-notes fix/demo-typo >"$T/states.tsv"
+{ ops get-pr-state feat/demo-notes; cat "$T/typo.tsv"; } >"$T/states.tsv"
 out="$("$SRC/scripts/build-position.sh" specs/demo/plan.md "$T/states.tsv")"
 grep -q "^T1 .*status=done" <<<"$out" && grep -q "^T2 .*status=done" <<<"$out" && grep -q "^ACTION=integrate" <<<"$out" \
   && ok "build-position: Issue local, wave 0 done" || ko "build-position: $out"
@@ -154,5 +171,16 @@ git switch -q feat/demo && git merge -q --ff-only feat/demo-notes
 "$SRC/scripts/mark-merged.sh" feat/demo-notes --closed >/dev/null && [[ "$(ops get-pr-state feat/demo-notes)" == *CLOSED* ]] \
   && ok "mark-merged --closed" || ko "closed"
 ops create-pr feat/demo feat/demo "x" "$T/body.md" >/dev/null 2>&1 && ko "create-pr: nothing to merge" || ok "create-pr: refuses a branch with nothing to merge"
+
+# No remote: the scripts that used <remote>/<base>.
+git switch -q dev
+out="$("$SRC/scripts/commit-feature-doc.sh" demo demo intent.md 2>&1)"
+[[ "$out" == *"BRANCH=feat/demo"* ]] && git show -q feat/demo:specs/demo/intent.md >/dev/null 2>&1 \
+  && ok "no remote: commit-feature-doc with the feature name as issue" || ko "commit-feature-doc: $out"
+"$SRC/scripts/commit-feature-doc.sh" demo 12x intent.md >/dev/null 2>&1 && ko "commit-feature-doc: bad issue" || ok "commit-feature-doc: refuses another issue value"
+echo more >>README.txt && git commit -q -am "docs: more"
+out="$("$SRC/scripts/verify-worktree.sh" create demo feat/demo 2>&1)"
+[[ "$out" == *"MERGED=yes"* && "$out" == *"BASE_HEAD=$(git rev-parse dev)"* ]] && ok "no remote: verify-worktree merges the local base" || ko "verify-worktree: $out"
+"$SRC/scripts/verify-worktree.sh" remove demo >/dev/null
 
 done_tests
