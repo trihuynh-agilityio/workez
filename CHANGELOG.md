@@ -10,6 +10,15 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+- Local tracker: `"tracker": "local"` in `workflow.json` runs every phase without `gh` or GitHub, for projects on GitLab, another host, or with no remote. Features are tracked in `.claude/workflow/`, task PRs become merge request files the user opens (with a GitLab "new merge request" link), and merges are read from git. New `scripts/local-ops.sh` (the `github-ops` operations without `gh`) and `scripts/mark-merged.sh` (marks a squash-merged or closed merge request). See "Local tracker" in `WORKFLOW.md`.
+- Optional top-level `remote` in `workflow.json` (else `github.remote`); `""` means no remote with the local tracker.
+- `/workez:setup` suggests the tracker from `gh` and the remotes, and asks for the base branch with `dev` as the default, offering the repository's default branch when `dev` does not exist.
+
+### Changed
+- `doctor.sh` needs `gh` and `github.*` only with the GitHub tracker, and fails when the local tracker's `naming` still uses `{feature_issue}` or `{task_issue}`.
+- `setup-project.sh` writes `gh` permission rules only with the GitHub tracker, and `git fetch`/`git push` rules only when there is a remote.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added

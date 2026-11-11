@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Prepares a project for the workez plugin, from its .claude/workflow.json:
 #   - merges the workflow's permission rules into .claude/settings.json (permissions cannot read
-#     workflow.json, so they are written out per project: gh api paths, remote, branch prefixes,
+#     workflow.json, so they are written out per project: gh api paths (GitHub tracker only), remote
+#     (when there is one), branch prefixes,
 #     protected branches, the project's commands, the plugin scripts and Playwright servers),
 #   - adds the workflow's runtime folders and the personal .claude/workflow.local.json to .gitignore.
 # Run it from inside the project. Re-running is safe: rules and lines already there are kept once.
@@ -10,29 +11,34 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
 dry=0; [[ "${1:-}" == --dry-run ]] && dry=1
 
-repo="$(cfg .github.repo)"; remote="$(cfg .github.remote)"
+repo="$(cfg .github.repo)"; remote="$(wf_remote)"
 docs="$(cfg .docs_dir)"
 prefixes="$(wf_branch_prefixes | jq -R . | jq -s 'map(select(. != ""))')"
-[[ -n "$repo" && -n "$remote" && -n "$docs" && "$prefixes" != "[]" ]] \
-  || { echo "setup-project: workflow.json needs github.repo, github.remote, docs_dir and conventions.commit_types or branches.prefix" >&2; exit 2; }
+local_tracker=false; wf_local && local_tracker=true
+[[ -n "$docs" && "$prefixes" != "[]" ]] \
+  || { echo "setup-project: workflow.json needs docs_dir and conventions.commit_types or branches.prefix" >&2; exit 2; }
+$local_tracker || [[ -n "$repo" && -n "$remote" ]] \
+  || { echo "setup-project: workflow.json needs github.repo and github.remote (or \"tracker\": \"local\")" >&2; exit 2; }
 
 plugin="$(jq -r .name "$WF_HOME/.claude-plugin/plugin.json")"
-allow="$(jq -n --arg repo "$repo" --arg remote "$remote" --argjson prefixes "$prefixes" --arg docs "$docs" \
+allow="$(jq -n --arg repo "$repo" --arg remote "$remote" --argjson prefixes "$prefixes" --arg docs "$docs" --argjson local "$local_tracker" \
   --arg plugin "$plugin" --argjson cmds "$(jq '[.commands | to_entries[] | select(.key != "acceptance") | .value[]?.run] | unique' "$WF_CONFIG")" '
+  (if $local then [] else
   [ "Bash(gh issue create *)", "Bash(gh issue list *)", "Bash(gh issue view *)", "Bash(gh issue comment *)",
     "Bash(gh issue edit *)", "Bash(gh issue close *)", "Bash(gh label create *)", "Bash(gh label list *)",
     "Bash(gh pr create *)", "Bash(gh pr list *)", "Bash(gh pr view *)", "Bash(gh pr edit *)",
     "Bash(gh api repos/\($repo)/issues/*)", "Bash(gh api repos/\($repo)/pulls/*)",
-    "Bash(gh api repos/\($repo)/actions/jobs/*)",
-    "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)", "Bash(git show *)", "Bash(git branch*)",
+    "Bash(gh api repos/\($repo)/actions/jobs/*)" ] end)
+  + [ "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)", "Bash(git show *)", "Bash(git branch*)",
     "Bash(git rev-parse *)", "Bash(git merge-base *)", "Bash(git ls-remote *)", "Bash(git worktree *)",
-    "Bash(git add *)", "Bash(git commit *)", "Bash(git fetch \($remote)*)",
+    "Bash(git add *)", "Bash(git commit *)",
     "Bash(*\($plugin)*/scripts/*.sh*)",
     "Edit(.claude/workflow/**)", "Edit(\($docs)/*/evidence/**)", "Edit(\($docs)/*/reviews/**)",
     "Edit(\($docs)/*/plan.md)", "Edit(\($docs)/*/plan-fix.md)",
     "mcp__plugin_\($plugin)_playwright-a", "mcp__plugin_\($plugin)_playwright-b",
     "CronCreate", "CronList", "CronDelete" ]
-  + [ $prefixes[] as $p | "Bash(git push -u \($remote) \($p)*)", "Bash(git push \($remote) \($p)*)" ]
+  + (if $remote == "" then [] else [ "Bash(git fetch \($remote)*)" ]
+      + [ $prefixes[] as $p | "Bash(git push -u \($remote) \($p)*)", "Bash(git push \($remote) \($p)*)" ] end)
   + [ $cmds[] | "Bash(\(.)*)" ]')"
 deny="$(jq -n --arg plugin "$plugin" --argjson prot "$(jq '.branches.protected // []' "$WF_CONFIG")" '
   [ "Bash(git merge)", "Bash(git merge *)", "Bash(gh pr merge)", "Bash(gh pr merge *)",
