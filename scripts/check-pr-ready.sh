@@ -40,8 +40,8 @@ dirty="$(git status --porcelain --untracked-files=all | grep -vE "^\?\? (.*/)?$d
   grep -vE "^\?\? (.*/)?$docs/[^/]+/evidence/$task/" || true)"
 [[ -z "$dirty" ]] || bad "the working tree is not clean (commit or remove: $(head -3 <<<"$dirty" | tr '\n' ' '))"
 
-# 2. The sub-issue exists.
-[[ "$issue" =~ ^#[0-9]+$ ]] || bad "Issue is '${issue:-missing}', not a sub-issue number; run create-task-issues first"
+# 2. The sub-issue exists ("local" with the local tracker).
+wf_issue_ok "$issue" || bad "Issue is '${issue:-missing}', not $(wf_local && echo "'local'" || echo 'a sub-issue number'); run create-task-issues first"
 
 # 3. Size and file guard.
 out="$("$here/check-task.sh" "$task" "$plan" 2>&1)" || bad "check-task.sh failed: $out"
