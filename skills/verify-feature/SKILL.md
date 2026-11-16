@@ -59,7 +59,7 @@ Build a table for every requirement in the plan's AC coverage, none left out: `A
 
 ## 6. Whole-feature review (read-only)
 
-Read `git diff <BASE_HEAD>...<INTEGRATION_HEAD>` (run it with `git -C <WORKTREE>`; changed files and the diff stat first). Use the `workez:project-context` and `review-checklist` skills for the project's standards. Look for: consistency between tasks (interfaces, naming, duplicated logic), security and data handling, observability the spec promises, leftover debug code, scope creep beyond the intent and spec (files outside the plan, backend changes in a frontend-only feature), and anything in the spec's open questions or areas of concern that became a real gap. Each finding: severity (blocker, major, minor), `file:line`, suggested fix. A finding you cannot show in the diff is not a finding.
+Read `git diff <BASE_HEAD>...<INTEGRATION_HEAD>` (run it with `git -C <WORKTREE>`; changed files and the diff stat first). Use the `workez:project-context` and `review-checklist` skills for the project's standards. Look for: consistency between tasks (interfaces, naming, duplicated logic), security and data handling, observability the spec promises, leftover debug code, scope creep beyond the intent and spec (files outside the plan, backend changes in a frontend-only feature), and anything in the spec's open questions or areas of concern that became a real gap. The structure checklist of `workez:code-reviewer` (reuse, layer boundaries, casts and `any`, duplication) applies to the whole diff too. Each finding: severity (blocker, major, minor), `file:line`, suggested fix. A finding you cannot show in the diff is not a finding.
 
 ## 7. Report and verdict
 

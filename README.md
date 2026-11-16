@@ -21,6 +21,7 @@
 - [How it works](#how-it-works)
 - [Saving tokens](#saving-tokens)
 - [Commits and branches](#commits-and-branches)
+- [Turn hard rules into lint rules or tests](#turn-hard-rules-into-lint-rules-or-tests)
 - [Requirements](#requirements)
 - [Install](#install)
 - [Check](#check)
@@ -77,6 +78,46 @@ Commits follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/
 Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. A breaking change adds `!` and a `BREAKING CHANGE:` footer. Each task in the plan has a **Type** and an optional **Scope**; verify's fix tasks are `fix`.
 
 They are checked three times: the `check-conventions.sh` hook blocks a `git commit -m` or a new branch (`checkout -b`, `switch -c`, `branch`, `worktree add -b`) that breaks them, `check-task.sh` checks the task's branch and every commit subject before review and PR, and `/workez:doctor` checks the `naming` patterns. The types, the subject length (72) and the patterns live in `conventions` and `naming` of `.claude/workflow.json`; remove `conventions` (and set `branches.prefix`) to turn the checks off.
+
+## Turn hard rules into lint rules or tests
+
+The planner and the reviewer can only check placement against rules that are written down. `workez:project-context` looks for a **Structure** standard (folders, layers, who may import whom, where shared helpers live) in `CLAUDE.md`, `AGENTS.md` at any depth (a nested one is scoped to its folder) and `ARCHITECTURE*`. The plan lists what it found under `## Standards` and gives each task a `Placement:` line; the reviewer runs a structure checklist on every task. When nothing is found you see this warning, and the work goes on:
+
+```
+No structure rules found for <area>; placement cannot be checked
+```
+
+Even then the reviewer catches a misplaced file late, after it is written. The strongest form of a rule is a check that fails CI. Write the rule once in prose, then enforce it.
+
+Example `## Structure` section in `CLAUDE.md` or `AGENTS.md` for a Hono API:
+
+```markdown
+## Structure
+- `src/routes/`: parse input, call a service, return the response. No business logic, no DB access.
+- `src/services/`: business logic. Shared lookups (`findUserById`) live in `src/services/users.ts`.
+- `src/db/`: the DB client (`src/db/client.ts`) and schema. Only `src/db/` and services import the client.
+```
+
+Enforce it with an ESLint override (flat config) that bans the DB client in routes:
+
+```js
+{
+  files: ["src/routes/**/*.ts"],
+  rules: {
+    "no-restricted-imports": ["error", {
+      patterns: [{ group: ["**/db", "**/db/*", "@app/db", "drizzle-orm"],
+        message: "Routes call services; only services and src/db import the DB client." }],
+    }],
+  },
+}
+```
+
+Without ESLint, a few lines of bash in CI do the same (`tests/fixtures/structure-rules/check-route-imports.sh` is tested here):
+
+```bash
+bad="$(grep -rlE "from ['\"][^'\"]*db/client['\"]" src/routes || true)"
+[[ -z "$bad" ]] || { echo "routes must not import the db client: $bad"; exit 1; }
+```
 
 ## Requirements
 

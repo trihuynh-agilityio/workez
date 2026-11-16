@@ -11,6 +11,9 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 ## [Unreleased]
 
 ### Added
+- Structure standard: `workez:project-context` also finds where code goes (folders, layers, import boundaries) in `CLAUDE.md`, `AGENTS.md` at any depth and `ARCHITECTURE*`, and accepts a task description. A missing structure standard returns the warning `No structure rules found for <area>; placement cannot be checked` instead of a question.
+- Plans (`write-plan`, `build-task`) have a `## Standards` section and a required task field `Placement`; `create-task-issues` and the `build-task` approval show them. `code-reviewer` runs a structure checklist on every review (reuse, layer boundaries, `as`/`any`, duplication) and the `implementer` follows `Placement`.
+- README section "Turn hard rules into lint rules or tests", with `tests/test-structure-rules.sh` and fixtures.
 - Optional `task_limits.skip_tests_docs` (default `true`) and `task_limits.tests_docs` in `workflow.json`: tests and docs that come with the change no longer count toward `max_files` in `check-task.sh` (their lines still count toward `max_lines`).
 - `scripts/worktree.sh`: the one way the workflow makes a task worktree. `create <branch> [--from <start>]` fetches the start branch (the base by default), cuts from `<remote>/<start>` and runs a preflight (`git merge-base --is-ancestor <remote>/<start> HEAD`); a failing preflight names the base, the HEAD and how many commits are missing, and never resets (a fresh worktree is removed, an existing one must be recreated). `check` runs the preflight alone; `base` prints the base branch.
 - `doctor.sh` checks the base branch the plugin really uses: plans whose PR target is not `branches.base` (standalone tasks) or is a protected branch, task worktrees not cut from their PR target, and (online) a remote default branch that differs from `branches.base`.
