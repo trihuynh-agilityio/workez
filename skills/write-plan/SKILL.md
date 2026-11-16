@@ -75,7 +75,7 @@ From: [intent.md](intent.md) and [spec.md](spec.md).
 
 ### Task size (hard rule)
 
-- One task is one PR with fewer than `task_limits.max_lines` changed lines (added and removed, tests included) and fewer than `task_limits.max_files` files. Files matching `task_limits.exclude` (lock files, `*.snap` and SVGs by default) do not count, but still go in the task's **Files**. Split a task before writing the plan if it would exceed either limit.
+- One task is one PR with fewer than `task_limits.max_lines` changed lines (added and removed, tests included) and fewer than `task_limits.max_files` files. Files matching `task_limits.exclude` (lock files, `*.snap` and SVGs by default) do not count, tests and docs do not count toward the file limit (unless `task_limits.skip_tests_docs` is `false`), and a moved file counts once; all of them still go in the task's **Files**. Split a task before writing the plan if it would exceed either limit.
 - If the plan needs more than about 10 tasks, stop and tell the user the feature may be too big and should be split. Do not write a huge plan.
 
 ### Task fields
@@ -84,7 +84,7 @@ Every task has, in this order:
 
 - **Lane**: `A`, `B` or `solo`.
 - **Goal**: one or two lines.
-- **Files**: the precise and complete list of files created (`(new)`) or modified, tests included.
+- **Files**: the precise and complete list of files created (`(new)`), modified or deleted, tests included, each path in backticks: one line (`` `src/a.ts` (new), `src/a.test.ts` ``) or a bullet list under the line. A moved file needs only its new path.
 - **Size**: estimated lines and file count, for example `~180 lines, 4 files`.
 - **Covers**: the requirement ids (`R1`, `R2`).
 - **Depends on**: task ids from earlier waves only, or `none`.

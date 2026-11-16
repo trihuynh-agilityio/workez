@@ -10,6 +10,14 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+- Optional `task_limits.skip_tests_docs` (default `true`) and `task_limits.tests_docs` in `workflow.json`: tests and docs that come with the change no longer count toward `max_files` in `check-task.sh` (their lines still count toward `max_lines`).
+
+### Changed
+- `check-task.sh` reads the task's **Files** as one line or a bullet list under it, with or without backticks; stray backticks, quotes, trailing commas and notes like `(new)` are dropped.
+- `check-task.sh` finds moves with `git diff -M` on the whole work, staged or not, so a moved file counts once and only its new path needs to be in **Files**.
+- Every `check-task.sh` failure names the plan line or path at fault, the rule it broke and a correct example.
+
 ## [0.6.0] - 2026-11-11
 
 ### Added
