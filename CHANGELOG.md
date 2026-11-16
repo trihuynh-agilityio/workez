@@ -12,8 +12,11 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ### Added
 - Optional `task_limits.skip_tests_docs` (default `true`) and `task_limits.tests_docs` in `workflow.json`: tests and docs that come with the change no longer count toward `max_files` in `check-task.sh` (their lines still count toward `max_lines`).
+- `scripts/worktree.sh`: the one way the workflow makes a task worktree. `create <branch> [--from <start>]` fetches the start branch (the base by default), cuts from `<remote>/<start>` and runs a preflight (`git merge-base --is-ancestor <remote>/<start> HEAD`); a failing preflight names the base, the HEAD and how many commits are missing, and never resets (a fresh worktree is removed, an existing one must be recreated). `check` runs the preflight alone; `base` prints the base branch.
+- `doctor.sh` checks the base branch the plugin really uses: plans whose PR target is not `branches.base` (standalone tasks) or is a protected branch, task worktrees not cut from their PR target, and (online) a remote default branch that differs from `branches.base`.
 
 ### Changed
+- One resolver for the base branch, `wf_base` in `lib/config.sh` (`branches.base`, else the remote's default branch), used by every script and hook; the skills and the implementer read it from `worktree.sh base` and make worktrees only through `worktree.sh create`, so a project whose base is `dev` never gets a worktree cut from `main`.
 - `check-task.sh` reads the task's **Files** as one line or a bullet list under it, with or without backticks; stray backticks, quotes, trailing commas and notes like `(new)` are dropped.
 - `check-task.sh` finds moves with `git diff -M` on the whole work, staged or not, so a moved file counts once and only its new path needs to be in **Files**.
 - Every `check-task.sh` failure names the plan line or path at fault, the rule it broke and a correct example.

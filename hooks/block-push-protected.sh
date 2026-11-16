@@ -11,7 +11,7 @@ cwd="$(jq -r '.cwd // empty' <<<"$input")"
 # Only in projects that use the workflow (a .claude/workflow.json).
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/hook-env.sh" || exit 0
 protected="$(cfg '.branches.protected // [] | join(" ")')"
-protected="${protected:-$(cfg .branches.base)}"
+protected="${protected:-$(wf_base)}"
 
 block() {
   echo "Blocked: $1" >&2

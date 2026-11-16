@@ -3,7 +3,7 @@ name: create-task-pr
 description: Phase 3 (Build) last step for ONE task: after the review loop (and the UI check, if the task has one), pushes the task branch and opens its pull request against the integration branch. Run with the feature folder name and the task id. It never merges or approves.
 model: sonnet
 disable-model-invocation: true
-allowed-tools: Read Write Glob Grep Agent Skill Bash(git status*) Bash(git log*) Bash(git diff*) Bash(git rev-parse *) Bash(git add *) Bash(git commit *) Bash(git ls-remote *) Bash(*/scripts/check-pr-ready.sh *) Bash(*/scripts/code-head.sh*)
+allowed-tools: Read Write Glob Grep Agent Skill Bash(git status*) Bash(git log*) Bash(git diff*) Bash(git rev-parse *) Bash(git add *) Bash(git commit *) Bash(git ls-remote *) Bash(*/scripts/check-pr-ready.sh *) Bash(*/scripts/worktree.sh *) Bash(*/scripts/code-head.sh*)
 ---
 
 # Create the PR for one task
@@ -14,7 +14,7 @@ Arguments: `<feature-name> <task-id>`, for example `saved-searches T4`.
 
 ## Paths
 
-- Settings: `<project root>/.claude/workflow.json` (`docs_dir`, `github.remote` as `<remote>`, `branches.base` as `<base>`). The **project folder** of a worktree is the worktree root plus the project's path inside the repository (`git -C <project root> rev-parse --show-prefix`; empty at the root).
+- Settings: `<project root>/.claude/workflow.json` (`docs_dir`, `github.remote` as `<remote>`, and as `<base>` the `BASE=` line of `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh base`: `branches.base`, else the repository's default branch). The PR's base is always the task's `PR target:`, never the repository's default branch. The **project folder** of a worktree is the worktree root plus the project's path inside the repository (`git -C <project root> rev-parse --show-prefix`; empty at the root).
 - Project root: the folder that holds `.claude/workflow.json` and `<docs_dir>`. Plan: `<project root>/<docs_dir>/<feature-name>/plan.md`, or `plan-fix.md` next to it when the task id is defined there (a fix task added by `workez:verify-feature`); that file is the plan path below. Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (they find the project from the current folder, a worktree included; run from elsewhere, prefix `WF_PROJECT=<project root>`).
 - Read the task's block in the plan: `Branch:` (the head), `PR target:` (the base, the integration branch), `PR title:`, `Issue:`, `Covers:`, and whether it has a `UI check:`.
 - The worktree is `<repo root>/.claude/worktrees/<branch with / replaced by ->`. Work from its project folder.
@@ -30,7 +30,7 @@ Never commit anything from `<docs_dir>/<feature-name>/evidence/`, not even `resu
 
 ## 2. Gate
 
-Run `check-pr-ready.sh <task-id> <plan path>` from the worktree. If it fails, show its messages and stop. Never edit the gates, bypass them or fix the cause here.
+Run `worktree.sh check <worktree path> --target <PR target>`, then `check-pr-ready.sh <task-id> <plan path>` from the worktree. If either fails, show its messages and stop. Never edit the gates, bypass them or fix the cause here.
 
 ## 3. Idempotency
 
