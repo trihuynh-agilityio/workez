@@ -76,6 +76,10 @@ if [[ "$tracker" == local ]]; then
 fi
 jq -e '(.task_limits.exclude // []) | type == "array" and all(type == "string")' "$WF_CONFIG" >/dev/null 2>&1 \
   || fail "task_limits.exclude" "must be a list of glob strings"
+jq -e '(.task_limits.tests_docs // []) | type == "array" and all(type == "string")' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "task_limits.tests_docs" "must be a list of glob strings"
+jq -e '.task_limits.skip_tests_docs | . == null or type == "boolean"' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "task_limits.skip_tests_docs" "must be true or false"
 
 # workflow.local.json: one person's overrides, only of the personal keys, never committed.
 for f in "$WF_CONFIG" "$WF_LOCAL"; do
