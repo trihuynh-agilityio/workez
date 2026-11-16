@@ -13,7 +13,7 @@ Arguments: `<feature-name> [--dry-run]`. With `--dry-run`, run only the read-onl
 
 ## Paths
 
-- Settings: `<project root>/.claude/workflow.json` (`docs_dir`, `branches.base` as `<base>`, `commands`, `lanes`).
+- Settings: `<project root>/.claude/workflow.json` (`docs_dir`, `commands`, `lanes`, and as `<base>` the `BASE=` line of `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh base`: `branches.base`, else the repository's default branch).
 - Project root: the folder that holds `.claude/workflow.json` and `<docs_dir>`. Plan: `<project root>/<docs_dir>/<feature-name>/plan.md`. Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (they find the project from the current folder, a worktree included; run from elsewhere, prefix `WF_PROJECT=<project root>`). State: `<project root>/.claude/workflow/<feature-name>/state.json`.
 - Integration branch: the `PR target:` of the plan's tasks (named by `naming.integration_branch`). Feature issue: `workez:github-ops find-issue` on `intent.md`.
 - Evidence (git-ignored, in the MAIN checkout so it survives the worktree): `<project root>/<docs_dir>/<feature-name>/evidence/verify/`. The report is written there as `verification.md` and is never committed; step 8 posts it to the feature issue.

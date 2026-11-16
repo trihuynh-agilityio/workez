@@ -23,7 +23,7 @@ while IFS=$'\t' read -r pattern message; do
   [[ -n "$pattern" ]] && matches "$pattern" && block "$message"
 done < <(jq -r '.blocked_commands // [] | .[] | "\(.pattern)\t\(.message)"' "$WF_CONFIG")
 protected="$(cfg '.branches.protected | join("|")')"
-protected="${protected:-$(cfg .branches.base)}"
+protected="${protected:-$(wf_base)}"
 
 # Git: never force-push, never push to a protected branch, never merge on one.
 # A push is judged by the branch it pushes, not by the branch checked out here: pushing

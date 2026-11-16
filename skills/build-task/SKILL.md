@@ -2,7 +2,7 @@
 name: build-task
 description: Use when asked to build ONE small, standalone change (a tweak, a small addition, a refactor) without the whole feature workflow. Writes a one-task plan and shows it to the user for approval before anything else happens, then opens a task issue, runs the task pipeline (implementer, review loop, UI check, full test suite), opens one PR straight to the base branch, then watches it until it is merged. Run with a description of the change, an existing issue as `#<n>`, or the task's slug to resume. A change that needs more than one task goes to plan-feature.
 model: opus
-allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
+allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/worktree.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*)
 ---
 
 # Build one task
@@ -13,7 +13,7 @@ Argument: a description of the change, an existing issue as `#<n>`, or the `<slu
 
 ## Paths
 
-- Settings: `<project root>/.claude/workflow.json`. Below, `<docs_dir>` is its `docs_dir`, `<remote>` is `github.remote`, `<base>` is `branches.base`, and the commands are its `commands` (each runs in its `dir`).
+- Settings: `<project root>/.claude/workflow.json`. Below, `<docs_dir>` is its `docs_dir`, `<remote>` is `github.remote`, `<base>` is the `BASE=` line of `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh base` (`branches.base`, else the repository's default branch; never assume `main`), and the commands are its `commands` (each runs in its `dir`).
 - Project root: the folder that holds `.claude/workflow.json`. The task's folder is `<project root>/.claude/workflow/<slug>/` (git-ignored): its **plan path** is `plan.md` there and its state `state.json`. The plan is never committed. Its review report and UI evidence live in the worktree under `<docs_dir>/<slug>/reviews/` and `evidence/`, as for a feature. Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/`.
 - `<slug>` stands in for the feature name everywhere (scripts, state, runtime files); the task id is always `T1`.
 
@@ -83,9 +83,9 @@ Read the state and run `gh-watch.sh <Branch>:<Issue number> --no-feedback` (read
 
 ## 7. Build
 
-Only with plan line 2 `Status: approved.`; otherwise go back to step 4. Fetch the base first: `git fetch <remote> <base>`. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, and the lane instructions of `${CLAUDE_PLUGIN_ROOT}/skills/build-feature/SKILL.md` step 3 (it reads that file), with these changes for a standalone task:
+Only with plan line 2 `Status: approved.`; otherwise go back to step 4. The plan's `PR target:` must be `<base>`; if it is not (the plan was written against another branch), stop and say so. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, and the lane instructions of `${CLAUDE_PLUGIN_ROOT}/skills/build-feature/SKILL.md` step 3 (it reads that file), with these changes for a standalone task:
 
-- The implementer cuts the worktree from `<remote>/<base>`, not the local `<base>`.
+- The implementer makes the worktree with `worktree.sh create <Branch> --from <base>`: it runs `git fetch <remote> <base>`, cuts the branch from `<remote>/<base>` (never the local `<base>`, never the repository's default branch), and fails the preflight unless `<remote>/<base>` is an ancestor of the worktree's `HEAD`. A `PREFLIGHT FAILED` comes back as `BLOCKED <its message>`; never repair the worktree with `git reset`, remove and recreate it.
 - The code reviewer's first round gets `git merge-base <remote>/<base> HEAD` (run in the worktree) as its base commit, so a stale local `<base>` never adds other commits to the review.
 - After the review PASS and the UI check (if any), the lane runs every `commands.test` command once in the worktree's project folder. A failure returns `FAILED <the failing output>`; the lane never changes tests or code outside `Files:` to make it pass.
 - In the PR body (`workez:create-task-pr` step 5), the issue line is `Closes #<n>`, not `Refs`, because the PR goes straight to `<base>`; `publish-evidence.sh` gets the task's `Branch:` as its third argument (the evidence branch is `<Branch>-evidence`), never `<base>`.

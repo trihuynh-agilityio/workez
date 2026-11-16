@@ -30,7 +30,7 @@ done
 [[ "$feature" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "usage: cleanup-feature.sh <feature> [--task <task-id>] [--dry-run]" >&2; exit 2; }
 
 remote="$(wf_remote)"
-base="$(cfg .branches.base)"
+base="$(wf_base)"
 docs="$WF_PROJECT/$(cfg .docs_dir)/$feature"
 runtime="$WF_PROJECT/.claude/workflow"
 plans=()
