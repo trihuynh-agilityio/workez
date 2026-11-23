@@ -47,4 +47,33 @@ out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 1,3,7,9)"; rc=$?
 [[ $rc == 0 && "$out" != *READY* ]] && ok "without --ready: no READY line" || ko "no --ready: rc $rc $out"
 out="$(bash "$SRC/scripts/gh-watch.sh" feat/b:12 --ready --settled 6)"; rc=$?
 [[ $rc == 0 && "$out" != *READY* ]] && ok "--ready: a MERGED PR is never READY" || ko "--ready merged: rc $rc $out"
+# --until-settled: repeat the pass until something needs acting on; only the final pass is printed.
+export GHW_STATE="$T/ghstate"; mkdir -p "$GHW_STATE"
+W="bash $SRC/scripts/gh-watch.sh"
+: >"$GHW_LOG"
+out="$($W feat/g:19 --until-settled --handled 9 --interval 1 --timeout 20s --grace 0)"; rc=$?
+[[ $rc == 30 && "$out" == *"READY 19 ready-eeeeeeeeeeee eeeeeeeeeeeeeeeeeeee"* && "$(grep -c 'pr view 19' "$GHW_LOG")" == 1 ]] \
+  && ok "until-settled: no checks, grace 0 is READY on the first pass" || ko "until no checks: rc $rc $out"
+: >"$GHW_LOG"; rm -f "$GHW_STATE/pr18"
+out="$($W feat/f:18 --until-settled --handled 9 --interval 1 --timeout 20s --grace 0)"; rc=$?
+[[ $rc == 30 && "$out" == *"READY 18 ready-dddddddddddd"* && "$(grep -c 'pr view 18' "$GHW_LOG")" -ge 2 && "$(grep -c '^STATE' <<<"$out")" == 1 ]] \
+  && ok "until-settled: pending then green is READY, only the final pass printed" || ko "until pending->green: rc $rc $out"
+SECONDS=0
+out="$($W feat/d:14 --until-settled --interval 1 --timeout 20s)"; rc=$?
+[[ $rc == 20 && "$out" == *"CHECKS 15 checks-bbbbbbbbbbbb"* && $SECONDS -lt 3 ]] && ok "until-settled: failed check exits 20 at once" || ko "until checks: rc $rc $out"
+out="$($W feat/a:11 --handled 9 --until-settled --interval 1 --timeout 20s)"; rc=$?
+[[ $rc == 20 && "$out" == *FEEDBACK* ]] && ok "until-settled: feedback exits 20" || ko "until feedback: rc $rc $out"
+out="$($W feat/b:12 --until-settled --interval 1 --timeout 20s)"; rc=$?
+[[ $rc == 10 && "$out" == *"STATE feat/b MERGED 6 12"* ]] && ok "until-settled: merged PR exits 10" || ko "until merged: rc $rc $out"
+out="$($W feat/e:17 --until-settled --handled 9 --interval 1 --timeout 2s)"; rc=$?
+[[ $rc == 40 && "$(tail -n1 <<<"$out")" == "TIMEOUT feat/e 2s" && "$out" == *"STATE feat/e OPEN 16 17"* ]] \
+  && ok "until-settled: always-pending PR times out with exit 40" || ko "until timeout: rc $rc $out"
+: >"$GHW_LOG"
+out="$($W feat/g:19 --until-settled --handled 9 --interval 1 --timeout 20s --grace 2)"; rc=$?
+[[ $rc == 30 && "$out" == *"READY 19"* && "$(grep -c 'pr view 19' "$GHW_LOG")" -ge 2 ]] \
+  && ok "until-settled: a no-check PR is held back during the grace" || ko "until grace: rc $rc $out"
+$W feat/a:11 feat/b:12 --until-settled >/dev/null 2>&1; [[ $? == 2 ]] && ok "until-settled: two pairs is a usage error" || ko "until two pairs"
+$W feat/a:11 --until-settled --no-feedback >/dev/null 2>&1; [[ $? == 2 ]] && ok "until-settled: --no-feedback is a usage error" || ko "until --no-feedback"
+$W feat/a:11 --timeout 5 >/dev/null 2>&1; [[ $? == 2 ]] && ok "--timeout without --until-settled is a usage error" || ko "timeout alone"
+$W feat/a:11 --until-settled --interval x >/dev/null 2>&1; [[ $? == 2 ]] && ok "until-settled: a non-integer interval is a usage error" || ko "bad interval"
 done_tests

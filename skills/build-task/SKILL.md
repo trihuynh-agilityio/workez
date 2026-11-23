@@ -89,7 +89,7 @@ Read the state and run `gh-watch.sh <Branch>:<Issue number> --no-feedback` (read
 
 ## 7. Build
 
-Only with plan line 2 `Status: approved.`; otherwise go back to step 4. The plan's `PR target:` must be `<base>`; if it is not (the plan was written against another branch), stop and say so. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, carrying out `${CLAUDE_PLUGIN_ROOT}/skills/run-lane/SKILL.md` with runner `agent` (it reads that file), with these changes for a standalone task. `build-task` always uses a subagent lane, whatever `lane_runner` says: there is one task, no later wave to start, and this session already watches its PR.
+Only with plan line 2 `Status: approved.`; otherwise go back to step 4. The plan's `PR target:` must be `<base>`; if it is not (the plan was written against another branch), stop and say so. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, carrying out `${CLAUDE_PLUGIN_ROOT}/skills/run-lane/SKILL.md` (it reads that file), with these changes for a standalone task:
 
 Changes:
 

@@ -55,18 +55,16 @@ The `Stop` hook moves from one phase to the next. Nothing in the workflow approv
 
 ## Review only the final PR
 
-Two optional keys in `.claude/workflow.json` take the task PRs off your plate:
+One optional key in `.claude/workflow.json` takes the task PRs off your plate:
 
 ```json
-"auto_merge": { "task_prs": true, "method": "merge" },
-"lane_runner": "session"
+"auto_merge": { "task_prs": true, "method": "merge" }
 ```
 
-- **`auto_merge.task_prs`** (off by default): the build merges a task PR into the feature's integration branch with a merge commit once it is ready: local review PASS, UI check passed, every CI check green, no unhandled feedback and no conflict. Anything else waits for you as before. The merge goes through `scripts/merge-task-pr.sh`, which refuses a protected branch, the base branch, a changed head or a failing check. It works with GitHub and with the local tracker (`git merge --no-ff`, then a push of the integration branch when there is a remote). **The final PR and `build-task` PRs are never merged for you.**
-- **`lane_runner: "session"`** (missing means `agent`): each task runs in its own Claude desktop sub session, which you can open, follow and steer. The sub session builds the task, opens its PR, watches only that PR, fixes feedback, merges it when ready, then reports back and ends. The main session wakes up and starts the next wave itself, with no click from you. Without the desktop app (plain CLI), or if the app refuses to start a session, that task falls back to a subagent lane.
-- **`## Notable issues`**: whichever mode you use, the final PR (and a `build-task` PR) ends with at most 8 one-line bullets from the build's `notes.md`, such as review blockers and how they were fixed, wontfix items, flaky or failed checks, conflicts left to you, blocked tasks and verify findings. Read this first. It says `None.` when nothing stood out.
+- **`auto_merge.task_prs`** (off by default): the build merges a task PR into the feature's integration branch with a merge commit once it is ready: local review PASS, UI check passed, every CI check green, no unhandled feedback and no conflict. Anything else waits for you as before. The merge goes through `scripts/merge-task-pr.sh`, which refuses a protected branch, the base branch, a changed head or a failing check. It works with GitHub and with the local tracker (`git merge --no-ff`, then a push of the integration branch when there is a remote). The build waits for each task PR with a script (`gh-watch.sh --until-settled`, in the background: no tokens, no 10-minute cron) and merges it as soon as it is ready. **The final PR and `build-task` PRs are never merged for you.**
+- **`## Notable issues`**: with or without auto-merge, the final PR (and a `build-task` PR) ends with at most 8 one-line bullets from the build's `notes.md`, such as review blockers and how they were fixed, wontfix items, flaky or failed checks, conflicts left to you, blocked tasks and verify findings. Read this first. It says `None.` when nothing stood out.
 
-With both on, you act at the gates (intent, spec, plan), on anything reported as blocked or in conflict, and on the final PR. Details: "Lane runner" and "Auto-merge of task PRs" in [WORKFLOW.md](WORKFLOW.md).
+With it on, you act at the gates (intent, spec, plan), on anything reported as blocked or in conflict, and on the final PR. Details: "Auto-merge of task PRs" in [WORKFLOW.md](WORKFLOW.md).
 
 ## Saving tokens
 
@@ -143,7 +141,7 @@ Check these before you install; `/workez:doctor` checks them for you afterwards.
 
 | Tool | Version | Used for |
 |---|---|---|
-| Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build and verify watches (they run only while the session is open, for up to 7 days); the desktop app for `lane_runner` `session` (build lanes as sub sessions), the plain CLI falls back to subagent lanes |
+| Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build watch (without auto-merge) and the verify watch (they run only while the session is open, for up to 7 days) |
 | `git` | 2.42+ | worktrees per task (`worktree add --orphan` for the evidence branch) |
 | `gh` | signed in (`gh auth login`); not needed with the local tracker | issues, sub-issues, labels, PRs |
 | `jq` | 1.6+ | every script reads `workflow.json` with it |
@@ -193,7 +191,7 @@ It writes `.claude/workflow.json` (repository, branches, commands, formatters, d
 /workez:doctor
 ```
 
-Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (`lane_runner` is `session` or `agent`, with a warning when it is `session` and the desktop session tool is missing; branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
+Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (a warning when the removed `lane_runner` key is still set; branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
 
 ## Status
 

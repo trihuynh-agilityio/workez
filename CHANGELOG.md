@@ -13,6 +13,12 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 ### Added
 - `tools/release.sh notes X.Y.Z` prints a version's `CHANGELOG.md` section, for the GitHub Release notes; the release steps (README and the script's output) end with `gh release create`.
 
+### Changed
+- With `auto_merge.task_prs` on, `build-feature` no longer creates the 10-minute PR watch cron. It runs `gh-watch.sh <Branch>:<Issue> --until-settled` in the background for each task PR (one pair; options `--handled`, `--settled`, `--interval`, `--timeout`, `--grace`; polls every 30 s with no model; exit 10 merged or closed, 20 feedback, checks or conflict, 30 ready, 40 timeout, 2 after three gh errors; a PR without checks is ready after a 60 s grace) and merges each PR as soon as it is ready. Without auto-merge the cron stays.
+
+### Removed
+- `lane_runner` (shipped in 0.7.0): every lane runs as a subagent again. A `workflow.json` that still sets it keeps working: the key is ignored and `doctor` warns about it. `scripts/lane-result.sh`, the `LANE` lines of `build-position.sh` and the `claim-feature.sh` exception for `run-lane` are gone; `run-lane` stays as the shared lane instructions of the lane subagents.
+
 ## [0.7.0] - 2026-11-23
 
 ### Added

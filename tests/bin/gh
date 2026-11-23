@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Fake gh: pr list -> one OPEN PR 5 for feat/a, MERGED 6 for feat/b, OPEN 15 for feat/d, OPEN 16 for feat/e;
 # pr view -> PR 5 clean (head aaaaaaaaaaaaaaaaaaaa), PR 15 with a failed check and a conflict, PR 16 mergeable
-# with one IN_PROGRESS check; api -> fixed feedback (on PR 5); applies -q with jq.
+# with one IN_PROGRESS check, PR 18 (feat/f) one IN_PROGRESS check on its first `pr view` and COMPLETED/SUCCESS on
+# the later ones (call count in "$GHW_STATE/pr18"; without GHW_STATE always the green answer), PR 19 (feat/g)
+# mergeable with no checks at all (statusCheckRollup []); api -> fixed feedback (on PR 5); applies -q with jq.
 q=""; args=("$@")
 for ((i=0;i<${#args[@]};i++)); do [[ "${args[$i]}" == -q ]] && q="${args[$((i+1))]}"; done
 echo "$*" >>"$GHW_LOG"
@@ -11,7 +13,18 @@ if [[ "$1 $2" == "pr list" ]]; then
   [[ "$*" == *"--head feat/c"* ]] && data='[]'
   [[ "$*" == *"--head feat/d"* ]] && data='[{"number":15,"state":"OPEN","createdAt":"2026-01-01"}]'
   [[ "$*" == *"--head feat/e"* ]] && data='[{"number":16,"state":"OPEN","createdAt":"2026-01-01"}]'
+  [[ "$*" == *"--head feat/f"* ]] && data='[{"number":18,"state":"OPEN","createdAt":"2026-01-01"}]'
+  [[ "$*" == *"--head feat/g"* ]] && data='[{"number":19,"state":"OPEN","createdAt":"2026-01-01"}]'
 elif [[ "$1 $2" == "pr view" ]]; then
+  if [[ "$3" == 18 ]]; then
+    n=1
+    if [[ -n "${GHW_STATE:-}" ]]; then
+      n=$(($(cat "$GHW_STATE/pr18" 2>/dev/null || echo 0) + 1)); echo "$n" >"$GHW_STATE/pr18"
+    else n=2; fi
+    if ((n == 1)); then data='{"headRefOid":"dddddddddddddddddddd","mergeable":"MERGEABLE","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"IN_PROGRESS","conclusion":""}]}'
+    else data='{"headRefOid":"dddddddddddddddddddd","mergeable":"MERGEABLE","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"COMPLETED","conclusion":"SUCCESS"}]}'; fi
+  fi
+  [[ "$3" == 19 ]] && data='{"headRefOid":"eeeeeeeeeeeeeeeeeeee","mergeable":"MERGEABLE","statusCheckRollup":[]}'
   [[ "$3" == 5 ]] && data='{"headRefOid":"aaaaaaaaaaaaaaaaaaaa","mergeable":"MERGEABLE","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"COMPLETED","conclusion":"SUCCESS"},{"__typename":"CheckRun","name":"old","status":"COMPLETED","conclusion":"CANCELLED"}]}'
   [[ "$3" == 15 ]] && data='{"headRefOid":"bbbbbbbbbbbbbbbbbbbb","mergeable":"CONFLICTING","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"COMPLETED","conclusion":"FAILURE"},{"__typename":"CheckRun","name":"lint","status":"IN_PROGRESS","conclusion":""},{"__typename":"StatusContext","context":"ci/x","state":"PENDING"}]}'
   [[ "$3" == 16 ]] && data='{"headRefOid":"cccccccccccccccccccc","mergeable":"MERGEABLE","statusCheckRollup":[{"__typename":"CheckRun","name":"test","status":"IN_PROGRESS","conclusion":""}]}'
