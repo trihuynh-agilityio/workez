@@ -196,7 +196,7 @@ case "$op" in
       cat "$body"
     } >"$(mr_md "$head")"
     echo "$head $(mr_md "$head") new"
-    [[ "$link" != - ]] && echo "OPEN_MR=$link"
+    if [[ "$link" != - ]]; then echo "OPEN_MR=$link"; fi
     ;;
   get-pr-state)
     (($#)) || usage "<branch>..."
@@ -215,8 +215,19 @@ case "$op" in
     md="$(mr_md "$b")"; tmp="$(mktemp "$md.XXXXXX")"
     how=added
     grep -qxF -- "$heading" "$md" && how=replaced
-    awk -v h="$heading" '$0 == h { skip = 1; next } skip && /^## / { skip = 0 } !skip' "$md" >"$tmp"
-    printf '\n' >>"$tmp"; cat "$sec" >>"$tmp"
+    if [[ "$how" == replaced ]]; then
+      # The section, from its heading up to the next "## " line (or the end), becomes the section file;
+      # one blank line separates it from the next section. The rest stays byte for byte.
+      awk -v h="$heading" -v sec="$sec" '
+        $0 == h && !done {
+          while ((getline l < sec) > 0) print l
+          close(sec); skip = 1; done = 1; next
+        }
+        skip && /^## / { skip = 0; print "" }
+        !skip' "$md" >"$tmp"
+    else
+      cp "$md" "$tmp"; printf '\n' >>"$tmp"; cat "$sec" >>"$tmp"
+    fi
     mv "$tmp" "$md"
     echo "$b $md $how"
     ;;

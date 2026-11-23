@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cuts a release: moves the Unreleased notes of CHANGELOG.md under a new version heading, updates the
-# compare links, and sets "version" in .claude-plugin/plugin.json. It never commits, tags or pushes;
-# it prints those commands for you.
+# compare links, and sets "version" in .claude-plugin/plugin.json (that line only). It never commits,
+# tags or pushes; it prints the next steps for you.
 #   tools/release.sh major|minor|patch|X.Y.Z [--dry-run]
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,9 +41,13 @@ if ((dry)); then
   echo "== $current -> $next ($today)"; echo "$notes"; exit 0
 fi
 printf '%s\n' "$new_log" >"$log"
-tmp="$(mktemp)"; jq --arg v "$next" '.version = $v' "$manifest" >"$tmp" && mv "$tmp" "$manifest"
+# Change only the "version" line, so the manifest keeps its own layout (jq would reformat it all).
+tmp="$(mktemp)"
+sed -E "s/(\"version\"[[:space:]]*:[[:space:]]*\")[^\"]*\"/\1$next\"/" "$manifest" >"$tmp"
+[[ "$(jq -r .version "$tmp")" == "$next" ]] || { rm -f "$tmp"; echo "release: could not set version in $manifest" >&2; exit 2; }
+cat "$tmp" >"$manifest"; rm -f "$tmp"
 "$root/tools/check-version.sh" >/dev/null
 echo "Released $current -> $next in CHANGELOG.md and .claude-plugin/plugin.json. Next:"
-echo "  git commit -am \"Release v$next\""
-echo "  git tag -a v$next -m \"v$next\""
-echo "  git push --follow-tags"
+echo "  git commit -am \"chore(release): v$next\"   # on chore/release-$next, then a PR into dev"
+echo "  then a PR 'release: sync dev into main (v$next)' from dev into main"
+echo "  after it is merged: git tag -a v$next -m \"v$next\" origin/main && git push origin v$next"

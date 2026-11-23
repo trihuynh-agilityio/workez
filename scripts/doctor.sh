@@ -76,6 +76,25 @@ if [[ "$tracker" == local ]]; then
 fi
 jq -e '(.task_limits.exclude // []) | type == "array" and all(type == "string")' "$WF_CONFIG" >/dev/null 2>&1 \
   || fail "task_limits.exclude" "must be a list of glob strings"
+jq -e '(.task_limits.tests_docs // []) | type == "array" and all(type == "string")' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "task_limits.tests_docs" "must be a list of glob strings"
+jq -e '.task_limits.skip_tests_docs | . == null or type == "boolean"' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "task_limits.skip_tests_docs" "must be true or false"
+jq -e '(.auto_merge.task_prs // false) | type == "boolean"' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "auto_merge.task_prs" "must be true or false"
+am_method="$(jq -r '.auto_merge.method // "merge"' "$WF_CONFIG" 2>/dev/null)"
+[[ "$am_method" == merge ]] || fail "auto_merge.method" "'$am_method'; only merge (a merge commit) is supported"
+if jq -e '.auto_merge.task_prs == true' "$WF_CONFIG" >/dev/null 2>&1; then
+  ok "auto-merge" "on: ready task PRs merge into the integration branch (merge commit); the final PR stays manual"
+else
+  ok "auto-merge" "off: the user merges every task PR"
+fi
+lane_runner="$(jq -r '.lane_runner // "agent"' "$WF_CONFIG" 2>/dev/null)"
+case "$lane_runner" in
+  session) ok "lane_runner" "session (each task in its own desktop sub session; falls back to agent lanes without the session tool)" ;;
+  agent) ok "lane_runner" "agent (lanes run as subagents of the build session)" ;;
+  *) fail "lane_runner" "'$lane_runner'; must be session or agent" ;;
+esac
 
 # workflow.local.json: one person's overrides, only of the personal keys, never committed.
 for f in "$WF_CONFIG" "$WF_LOCAL"; do
@@ -121,7 +140,7 @@ else
   grep -q '{task_type}\|{task_scope}' "$WF_CONFIG" && fail "naming placeholders" "{task_type} and {task_scope} need conventions.commit_types"
   warn "conventions" "no conventions.commit_types: commit messages are not checked"
 fi
-base="$(cfg .branches.base)"
+base="$(wf_base)"
 jq -e --arg b "$base" '.branches.protected | index($b)' "$WF_CONFIG" >/dev/null \
   && ok "protected branches" "$(cfg '.branches.protected | join(", ")')" \
   || warn "protected branches" "the base branch $base is not in branches.protected"
@@ -186,7 +205,51 @@ else
         && ok "GitHub sub-issues" || warn "GitHub sub-issues" "could not call the sub-issues API (fine if the repository has no issue #1 yet)"
     fi
   else fail "gh auth" "gh is not signed in; run gh auth login"; fi
+  # Worktrees made outside workez (Claude Code sessions, git worktree add with no start point) start
+  # from the remote's default branch, not from branches.base.
+  default="$(wf_default_branch)"
+  if [[ -n "$(cfg .branches.base)" && -n "$remote" && "$default" != "$base" ]]; then
+    warn "default branch" "$remote's default branch is $default but branches.base is $base: worktrees and sessions made outside workez start from $default; workez cuts its own from $remote/$base"
+  fi
 fi
+
+# ---- Base branch actually used ----
+# Every plan's PR targets, and every task worktree, against the base branch of workflow.json.
+[[ -n "$(cfg .branches.base)" ]] && ok "base source" "branches.base = $base" \
+  || warn "base source" "branches.base not set; using the repository's default branch $base"
+bad_plans=""; declare -a pairs=()
+for plan in "$WF_PROJECT/$(cfg .docs_dir)"/*/plan.md "$WF_PROJECT/$(cfg .docs_dir)"/*/plan-fix.md "$WF_PROJECT"/.claude/workflow/*/plan.md; do
+  [[ -f "$plan" ]] || continue
+  standalone=0; [[ "$plan" == "$WF_PROJECT/.claude/workflow/"* ]] && standalone=1
+  while IFS=$'\t' read -r b t; do
+    [[ -n "$b" && -n "$t" && "$b" != *"<"* ]] || continue
+    pairs+=("$b"$'\t'"$t")
+    # A standalone task (build-task) targets the base itself; a feature task targets its integration branch.
+    if ((standalone)) && [[ "$t" != "$base" ]]; then bad_plans="$bad_plans ${plan#"$WF_PROJECT"/} ($t)"
+    elif ((!standalone)) && [[ "$t" != "$base" ]] && jq -e --arg t "$t" '.branches.protected // [] | index($t)' "$WF_CONFIG" >/dev/null; then
+      bad_plans="$bad_plans ${plan#"$WF_PROJECT"/} ($t)"; fi
+  done < <(awk '
+    /^## T[0-9]+: / { b = ""; t = ""; f = 1; next }
+    /^## / { f = 0 }
+    f && /^- \*\*Branch\*\*:/ { b = $0; sub(/^[^`]*`/, "", b); sub(/`.*/, "", b) }
+    f && /^- \*\*PR target\*\*:/ { t = $0; sub(/^[^`]*`/, "", t); sub(/`.*/, "", t); print b "\t" t }' "$plan")
+done
+[[ -z "$bad_plans" ]] && ok "plan PR targets" "consistent with $base" \
+  || fail "plan PR targets" "not the base branch $base:$bad_plans; edit branches.base or the plan"
+bad_wt=""; n_wt=0
+while IFS= read -r line; do
+  [[ "$line" == "worktree $WF_TOP/.claude/worktrees/"* ]] || continue
+  wt="${line#worktree }"; name="$(basename "$wt")"
+  [[ "$name" == verify-* || "$name" == *-evidence ]] && continue
+  wb="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null)" || continue
+  target=""
+  for p in "${pairs[@]+"${pairs[@]}"}"; do [[ "${p%%$'\t'*}" == "$wb" ]] && target="${p#*$'\t'}"; done
+  [[ -n "$target" ]] || continue   # an integration branch worktree, or not the workflow's
+  n_wt=$((n_wt + 1))
+  why="$(wf_base_check "$wt" "$target")" || bad_wt="$bad_wt; $name: $why"
+done < <(git -C "$WF_TOP" worktree list --porcelain 2>/dev/null)
+[[ -z "$bad_wt" ]] && ok "task worktrees" "$n_wt cut from their PR target" \
+  || fail "task worktrees" "${bad_wt#; }; remove and recreate them (scripts/worktree.sh create), never reset"
 
 echo; echo "failures: $fails, warnings: $warns"
 ((fails == 0))

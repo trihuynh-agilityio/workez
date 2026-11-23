@@ -21,7 +21,7 @@ With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in 
 Read `<docs_dir>/<feature-name>/plan.md`.
 
 - If line 2 is `Status: approved.`, carry on.
-- If it is `Status: draft.`, ask with `AskUserQuestion`: approve the plan, or change something. On changes, stop and let the user edit. On approval, set line 2 to `Status: approved.` with `Edit`.
+- If it is `Status: draft.`, first show the plan's `## Standards` section and each task's `Placement:` line, so the user sees them on the approval screen; a task with no `Placement:` line is shown as a gap. Then ask with `AskUserQuestion`: approve the plan, or change something. On changes, stop and let the user edit. On approval, set line 2 to `Status: approved.` with `Edit`.
 - Never edit `intent.md` or `spec.md`.
 
 ## 2. Find the feature issue

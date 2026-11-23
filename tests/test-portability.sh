@@ -48,6 +48,12 @@ git --git-dir="$T/remote.git" fetch -q "$T/app" main:main   # seed the bare remo
 # 1. Config library at the repository root.
 out="$(bash -c 'source $SRC/scripts/lib/config.sh && echo "[$WF_PREFIX]|$WF_TOP|$(wf_project_in /w)"')"
 [[ "$out" == "[]|$T/app|/w" ]] && ok "lib: project at repo root (prefix empty)" || ko "lib: $out"
+# Reached through a symlink (like macOS /var -> /private/var): the paths are resolved, the prefix stays empty.
+ln -s "$T/app" "$T/applink"
+out="$(cd "$T/applink" && bash -c 'source $SRC/scripts/lib/config.sh && echo "[$WF_PREFIX]|$WF_PROJECT|$WF_TOP"')"
+[[ "$out" == "[]|$T/app|$T/app" ]] && ok "lib: project through a symlink (paths resolved, prefix empty)" || ko "lib symlink: $out"
+out="$(WF_PROJECT="$T/applink" bash -c 'source $SRC/scripts/lib/config.sh && echo "[$WF_PREFIX]|$WF_PROJECT"')"
+[[ "$out" == "[]|$T/app" ]] && ok "lib: WF_PROJECT given through a symlink" || ko "lib WF_PROJECT symlink: $out"
 
 # 2. commit-feature-doc: branch name from naming, cut from origin/main, docs under specs/.
 mkdir -p specs/demo && printf '# Intent: Demo\nStatus: approved.\n' >specs/demo/intent.md
@@ -94,6 +100,10 @@ git worktree add -q -b feature/8-notes "$WT" feature/7-demo
 printf 'a  b   c\n' >"$WT/notes.txt"
 jq -n --arg f "$WT/notes.txt" '{tool_input:{file_path:$f}}' | bash $SRC/hooks/format-on-edit.sh
 [[ "$(cat "$WT/notes.txt")" == "a b c" ]] && ok "format hook: worktree file formatted" || ko "format hook: '$(cat "$WT/notes.txt")'"
+# The same file named through a symlink to the repository.
+printf 'a  b   c\n' >"$WT/notes.txt"
+jq -n --arg f "$T/applink/${WT#"$T/app/"}/notes.txt" '{tool_input:{file_path:$f}}' | bash $SRC/hooks/format-on-edit.sh
+[[ "$(cat "$WT/notes.txt")" == "a b c" ]] && ok "format hook: file path through a symlink" || ko "format hook symlink: '$(cat "$WT/notes.txt")'"
 mkdir -p "$WT/vendor" && printf 'x  y\n' >"$WT/vendor/v.txt"
 jq -n --arg f "$WT/vendor/v.txt" '{tool_input:{file_path:$f}}' | bash $SRC/hooks/format-on-edit.sh
 [[ "$(cat "$WT/vendor/v.txt")" == "x  y" ]] && ok "format hook: excluded path left alone" || ko "format hook: exclude"

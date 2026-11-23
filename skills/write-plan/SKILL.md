@@ -2,7 +2,7 @@
 name: write-plan
 description: Use when asked to write, draft or start an implementation plan for a change that already has an intent and a spec, before any code exists.
 model: opus
-allowed-tools: Bash(ls *) Read Write Glob Grep Agent
+allowed-tools: Skill Bash(ls *) Read Write Glob Grep Agent AskUserQuestion
 ---
 
 # Write a plan
@@ -17,6 +17,7 @@ With `"tracker": "local"` in `.claude/workflow.json`, follow "Local tracker" in 
 ## 1. Collect the inputs
 
 - **Intent and spec**: the `intent.md` and `spec.md` the plan answers. Take them from the request (a feature folder name such as `saved-searches` means `<docs_dir>/<feature-name>/`). If the request names none, run `ls <docs_dir>/` and ask which folder. If the folder has no `spec.md`, stop and offer to run `workez:write-spec` first.
+- **Standards**: invoke `workez:project-context` with the intent path and keep its list (file and section per standard, structure included). For each area where it reports structure missing, print its warning to the user verbatim (`No structure rules found for <area>; placement cannot be checked`) and continue.
 - **Project guidance**: read `CLAUDE.md` and any design spec it points to, for the stack, rules and commands. Read `.claude/workflow.json` for the workflow settings: `commands` (test, lint, build), `task_limits`, `naming`, `lanes` and `app_url` (the UI check URL of each lane). The tasks also need how to run one test file or test, from `CLAUDE.md` or the test command; if that is missing, stop and ask the user. Do not guess. The plan never copies the workflow rules, the settings or the repo name: those live in `workflow.json`, the skills and `workez:github-ops`.
 - **Feature issue number**: call the `workez:github-ops` agent with `find-issue <docs_dir>/<feature-name>/intent.md` and take the number from its report. The number names the integration branch only; it is never written into the intent or the spec. If it reports `not found`, stop and tell the user to finish Phase 1 (`/plan-feature`).
 - **The code**: use Glob and Grep to find the real files, routes, components and helpers the spec touches. Name only files you found, or new files marked as new. Never guess a path.
@@ -34,7 +35,7 @@ Read both documents whole before writing. If the spec's status is still `draft`,
 
 ## 3. File content
 
-The layout is fixed. Lines 1 to 3 are exactly these, then the headings below in this order. Do not rename, reorder, add or drop a heading.
+The layout is fixed. Lines 1 to 3 are exactly these, then the headings below in this order. Do not rename, reorder, add or drop a heading; `## Standards` always sits before the first wave.
 
 ```markdown
 # Plan: <feature name>
@@ -42,6 +43,10 @@ Status: draft.
 From: [intent.md](intent.md) and [spec.md](spec.md).
 
 ## Issues with the spec
+
+## Standards
+- <standard>: <file> (section <heading>)
+- structure: none found for <area>
 
 ## Wave 0
 (tasks)
@@ -59,6 +64,7 @@ From: [intent.md](intent.md) and [spec.md](spec.md).
 
 - Line 1 is `# Plan: ` plus the feature name in sentence case, as in the intent.
 - Line 2 is always `Status: draft.` when the file is first written.
+- `## Standards` has one line per standard from `workez:project-context`: `- <standard>: <file> (section <heading>)`, or `- structure: none found for <area>`. The reviewer and implementer read it as "the standards files the plan lists".
 - Each task is a heading `## T<n>: <title>  [ ]` placed under its wave heading, with the fields in section 4. The title becomes the description of the task's commit and PR title, so when `workflow.json` has `conventions` write it as Conventional Commits wants a description: imperative, starting lowercase, no trailing period, short enough that `<type>(<scope>): <title>` stays within `conventions.subject_max_length` (for example `add the save search button`).
 - `## Checks` has four parts, in this order: `### AC coverage`, `### Parallel safety`, `### Size`, `### Test plan`.
 
@@ -75,7 +81,7 @@ From: [intent.md](intent.md) and [spec.md](spec.md).
 
 ### Task size (hard rule)
 
-- One task is one PR with fewer than `task_limits.max_lines` changed lines (added and removed, tests included) and fewer than `task_limits.max_files` files. Files matching `task_limits.exclude` (lock files, `*.snap` and SVGs by default) do not count, but still go in the task's **Files**. Split a task before writing the plan if it would exceed either limit.
+- One task is one PR with fewer than `task_limits.max_lines` changed lines (added and removed, tests included) and fewer than `task_limits.max_files` files. Files matching `task_limits.exclude` (lock files, `*.snap` and SVGs by default) do not count, tests and docs do not count toward the file limit (unless `task_limits.skip_tests_docs` is `false`), and a moved file counts once; all of them still go in the task's **Files**. Split a task before writing the plan if it would exceed either limit.
 - If the plan needs more than about 10 tasks, stop and tell the user the feature may be too big and should be split. Do not write a huge plan.
 
 ### Task fields
@@ -84,7 +90,8 @@ Every task has, in this order:
 
 - **Lane**: `A`, `B` or `solo`.
 - **Goal**: one or two lines.
-- **Files**: the precise and complete list of files created (`(new)`) or modified, tests included.
+- **Files**: the precise and complete list of files created (`(new)`), modified or deleted, tests included, each path in backticks: one line (`` `src/a.ts` (new), `src/a.test.ts` ``) or a bullet list under the line. A moved file needs only its new path.
+- **Placement**: for each new or changed non-test file, the folder or layer it goes in and why, citing the structure rule as `file (section)`. When a helper is reused, name it. When no structure rule exists for that area, write `Placement: no structure rules for <area>; not checked.`
 - **Size**: estimated lines and file count, for example `~180 lines, 4 files`.
 - **Covers**: the requirement ids (`R1`, `R2`).
 - **Depends on**: task ids from earlier waves only, or `none`.
@@ -134,6 +141,7 @@ If the task has no UI change, leave the UI check out.
 - Never invent a file, command, requirement id or fact. A named risk beats a confident guess.
 - If the spec and the code or `CLAUDE.md` conflict, do not pick one silently. State both under Issues with the spec.
 - Ask the user only when something essential is missing or ambiguous and cannot be read from the inputs or the code. Otherwise choose the obvious option and record it.
+- A task never places code in a layer the structure rules forbid (for example DB access in a route file). Before adding a helper, Grep for an existing one doing the same job and reuse it; name it in Placement. Never add a duplicate.
 - No code in the plan. Never edit `intent.md` or `spec.md`.
 
 ## 7. Finish

@@ -10,6 +10,34 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-23
+
+### Added
+- Optional `lane_runner` in `workflow.json` (`session` or `agent`; missing means `agent`, today's behaviour; the template sets `session`). With `session`, `build-feature` starts one Claude desktop sub session per task of a wave through the app's `start_session` tool, and each runs the new internal `workez:run-lane` skill (implementer, review loop, UI check, own PR, own watch, auto-merge, `notes.md` lines), then writes its result to `.claude/workflow/<feature>/lane-<task>.json` with the new `scripts/lane-result.sh` and ends. The main session runs no wave cron: the app wakes it when a sub session ends a turn, and it starts the next wave itself. Without the session tool, or when the app refuses a start, that task falls back to a subagent lane. `build-position.sh` reads `LANE` lines (from `lane-result.sh states`), so a task with a live lane is never started twice and a blocked or failed lane blocks the build. `doctor.sh` checks `lane_runner`, and the doctor skill warns when it is `session` and the session tool is missing. See "Lane runner" in `WORKFLOW.md`.
+- Opt-in `auto_merge` in `workflow.json` (`task_prs`, `false` by default; `method`, only `merge`). With `task_prs` on, the build watch merges each ready task PR into the feature's integration branch with a merge commit; the final PR and `build-task` PRs are never auto-merged. `scripts/merge-task-pr.sh <feature> <task-id> --sha <sha> [--pr <n>] [--dry-run]` does the merge and refuses unless every guard holds (feature task only, integration branch target, local review PASS and UI check, head unchanged, mergeable, every check green); on the local tracker it merges with `--no-ff` in a throwaway worktree and pushes the integration branch when there is a remote. It appends an `auto-merged` line to the feature's `notes.md`. `gh-watch.sh --ready` prints `READY` lines for a PR with no new feedback, no failed or pending check and no conflict (exit 30 when only READY lines are new). `build-feature` step 4 merges ready task PRs when it is on, and `doctor.sh` reports it.
+- `scripts/note.sh` and the per-feature `notes.md` (`.claude/workflow/<feature>/`, git-ignored): one line per decision point (review blocker and major findings and their fix, wontfix, flaky or infra checks, conflicts, used-up fix budget, UI check FAIL, blocked tasks, spec deviations, verify FAIL, UNVERIFIED and major findings), never routine passes.
+- A short `## Notable issues` section (at most 8 bullets, condensed from `notes.md`) in the final PR (`build-feature` step 5, refreshed by `verify-feature`) and in `build-task` PRs.
+- Structure standard: `workez:project-context` also finds where code goes (folders, layers, import boundaries) in `CLAUDE.md`, `AGENTS.md` at any depth and `ARCHITECTURE*`, and accepts a task description. A missing structure standard returns the warning `No structure rules found for <area>; placement cannot be checked` instead of a question.
+- Plans (`write-plan`, `build-task`) have a `## Standards` section and a required task field `Placement`; `create-task-issues` and the `build-task` approval show them. `code-reviewer` runs a structure checklist on every review (reuse, layer boundaries, `as`/`any`, duplication) and the `implementer` follows `Placement`.
+- README section "Turn hard rules into lint rules or tests", with `tests/test-structure-rules.sh` and fixtures.
+- Optional `task_limits.skip_tests_docs` (default `true`) and `task_limits.tests_docs` in `workflow.json`: tests and docs that come with the change no longer count toward `max_files` in `check-task.sh` (their lines still count toward `max_lines`).
+- `scripts/worktree.sh`: the one way the workflow makes a task worktree. `create <branch> [--from <start>]` fetches the start branch (the base by default), cuts from `<remote>/<start>` and runs a preflight (`git merge-base --is-ancestor <remote>/<start> HEAD`); a failing preflight names the base, the HEAD and how many commits are missing, and never resets (a fresh worktree is removed, an existing one must be recreated). `check` runs the preflight alone; `base` prints the base branch.
+- `doctor.sh` checks the base branch the plugin really uses: plans whose PR target is not `branches.base` (standalone tasks) or is a protected branch, task worktrees not cut from their PR target, and (online) a remote default branch that differs from `branches.base`.
+
+### Changed
+- `build-feature` steps 3 and 4 start and follow sub sessions when `lane_runner` is `session`; the lane instructions moved from `build-feature` step 3 to `run-lane`. `claim-feature.sh` ignores `workez:run-lane`, so a sub session never owns the feature. `build-task` always uses a subagent lane and points at `run-lane` for the lane steps.
+- `append-pr-section` (`github-ops` and `local-ops.sh`) replaces an existing section in place instead of moving it to the end of the body.
+- The final PR body has a `## Tasks` heading over the task PR table.
+- One resolver for the base branch, `wf_base` in `lib/config.sh` (`branches.base`, else the remote's default branch), used by every script and hook; the skills and the implementer read it from `worktree.sh base` and make worktrees only through `worktree.sh create`, so a project whose base is `dev` never gets a worktree cut from `main`.
+- `check-task.sh` reads the task's **Files** as one line or a bullet list under it, with or without backticks; stray backticks, quotes, trailing commas and notes like `(new)` are dropped.
+- `check-task.sh` finds moves with `git diff -M` on the whole work, staged or not, so a moved file counts once and only its new path needs to be in **Files**.
+- Every `check-task.sh` failure names the plan line or path at fault, the rule it broke and a correct example.
+
+### Fixed
+- `tools/release.sh` changes only the `"version"` line of `plugin.json` instead of reformatting the whole file with `jq`, and prints the release steps through `dev` and `main`.
+- `lib/config.sh` resolves symlinks in the project and repository paths (`pwd -P`), so a project reached through a symlink (macOS `/var` → `/private/var`) no longer gets a wrong project prefix; `format-on-edit.sh` resolves the edited file's path the same way.
+- `local-ops.sh create-pr` exits 0 on success when it has no merge request link to print (no remote, or not GitLab).
+
 ## [0.6.0] - 2026-11-11
 
 ### Added
@@ -79,7 +107,8 @@ First release of workez: a Claude Code plugin that takes a feature from intent t
 - `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
 - Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
-[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.3.0...v0.4.0

@@ -20,7 +20,7 @@ action="${1:-}"; feature="${2:-}"; branch="${3:-}"
   echo "usage: verify-worktree.sh create <feature-name> <integration-branch> | remove <feature-name>" >&2; exit 2; }
 
 top="$WF_TOP"
-remote="$(wf_remote)"; base="$(cfg .branches.base)"
+remote="$(wf_remote)"; base="$(wf_base)"
 wt="$top/.claude/worktrees/verify-$feature"
 tmp_branch="verify/$feature"
 [[ "$wt" == "$top/.claude/worktrees/verify-"* ]] || { echo "verify-worktree: bad path $wt" >&2; exit 2; }

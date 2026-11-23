@@ -30,4 +30,21 @@ out="$(bash "$SRC/scripts/gh-watch.sh" feat/d:14 --handled 9,checks-bbbbbbbbbbbb
 [[ $rc == 0 && "$out" != *CHECKS* && "$out" != *CONFLICT* ]] && ok "handled check and conflict ids are dropped" || ko "handled checks: rc $rc $out"
 out="$(bash "$SRC/scripts/gh-watch.sh" feat/d:14 --no-feedback)"; rc=$?
 [[ $rc == 0 && "$out" != *CHECKS* && "$out" != *CONFLICT* ]] && ok "--no-feedback skips checks and conflicts" || ko "--no-feedback checks: rc $rc $out"
+# --ready: an OPEN PR that is mergeable, green and without feedback is READY (exit 30), once per head sha.
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 1,3,7,9 --ready)"; rc=$?
+[[ $rc == 30 && "$out" == *"READY 5 ready-aaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaa"* ]] && ok "--ready: clean PR is READY, exit 30" || ko "--ready: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 1,3,7,9,ready-aaaaaaaaaaaa --ready)"; rc=$?
+[[ $rc == 0 && "$out" != *READY* ]] && ok "--ready: handled ready id is dropped, exit 0" || ko "--ready handled: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 9 --ready)"; rc=$?
+[[ $rc == 20 && "$out" == *FEEDBACK* && "$out" != *READY* ]] && ok "--ready: feedback on the PR means no READY (exit 20)" || ko "--ready feedback: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/d:14 --ready)"; rc=$?
+[[ $rc == 20 && "$out" != *READY* ]] && ok "--ready: failed check and conflict mean no READY" || ko "--ready failing: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 1,3,7,9 --ready --no-feedback)"; rc=$?
+[[ $rc == 0 && "$out" != *READY* ]] && ok "--ready with --no-feedback: no READY" || ko "--ready --no-feedback: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/e:17 --handled 9 --ready)"; rc=$?
+[[ $rc == 0 && "$out" == *"STATE feat/e OPEN 16 17"* && "$out" != *READY* ]] && ok "--ready: a pending check means no READY, exit 0" || ko "--ready pending: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/a:11 --handled 1,3,7,9)"; rc=$?
+[[ $rc == 0 && "$out" != *READY* ]] && ok "without --ready: no READY line" || ko "no --ready: rc $rc $out"
+out="$(bash "$SRC/scripts/gh-watch.sh" feat/b:12 --ready --settled 6)"; rc=$?
+[[ $rc == 0 && "$out" != *READY* ]] && ok "--ready: a MERGED PR is never READY" || ko "--ready merged: rc $rc $out"
 done_tests

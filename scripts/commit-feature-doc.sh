@@ -17,7 +17,7 @@ issue_ok() { [[ "$issue" =~ ^[0-9]+$ ]] || { wf_local && [[ "$issue" == "$featur
 [[ "$feature" =~ ^[a-z0-9][a-z0-9-]*$ && $# -gt 0 ]] && issue_ok || {
   echo "usage: commit-feature-doc.sh <feature-name> <feature-issue-number> <doc>..." >&2; exit 2; }
 
-base="$(cfg .branches.base)"
+base="$(wf_base)"
 branch="$(wf_fill "$(cfg .naming.integration_branch)" feature_issue="$issue" feature_slug="$feature")"
 wt="$(wf_worktree_path "$branch")"
 docs="$(cfg .docs_dir)/$feature"
@@ -30,6 +30,8 @@ done
 if ! git -C "$WF_TOP" show-ref --verify --quiet "refs/heads/$branch"; then
   wf_fetch "$base"
   git -C "$WF_TOP" branch --no-track "$branch" "$(wf_ref "$base")"
+  # Preflight: the new integration branch holds the whole fetched base.
+  why="$(wf_base_check "$branch")" || { git -C "$WF_TOP" branch -D "$branch" >/dev/null; echo "commit-feature-doc: $why" >&2; exit 3; }
 fi
 git -C "$WF_TOP" worktree add --quiet "$wt" "$branch"
 trap 'git -C "$WF_TOP" worktree remove --force "$wt"' EXIT

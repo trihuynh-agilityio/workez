@@ -19,8 +19,10 @@
 ## Contents
 
 - [How it works](#how-it-works)
+- [Review only the final PR](#review-only-the-final-pr)
 - [Saving tokens](#saving-tokens)
 - [Commits and branches](#commits-and-branches)
+- [Turn hard rules into lint rules or tests](#turn-hard-rules-into-lint-rules-or-tests)
 - [Requirements](#requirements)
 - [Install](#install)
 - [Check](#check)
@@ -40,16 +42,31 @@
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
 3. **Plan the work** – `plan.md`: waves of at most two tasks, size limits, acceptance-criteria coverage, then one GitHub sub-issue per task.
-4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
+4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
-The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
+The `Stop` hook moves from one phase to the next. Nothing in the workflow approves or force-pushes, and by default it merges nothing: you merge every task PR and the final PR. To review only the final PR, see [Review only the final PR](#review-only-the-final-pr).
 
 **One small change?** `/workez:build-task <change>` (or `#<issue>`) skips the phases: you approve a one-task plan, and it runs the same pipeline (implementer, review loop, UI check, full test suite) to one PR straight to the base branch, then watches it until you merge.
 
 <p align="center">
   <img src="docs/assets/build-lanes.gif" alt="Two task cards move in parallel through implementer, check-task, review loop, ui-verifier and task PR in lanes A and B" width="880">
 </p>
+
+## Review only the final PR
+
+Two optional keys in `.claude/workflow.json` take the task PRs off your plate:
+
+```json
+"auto_merge": { "task_prs": true, "method": "merge" },
+"lane_runner": "session"
+```
+
+- **`auto_merge.task_prs`** (off by default): the build merges a task PR into the feature's integration branch with a merge commit once it is ready: local review PASS, UI check passed, every CI check green, no unhandled feedback and no conflict. Anything else waits for you as before. The merge goes through `scripts/merge-task-pr.sh`, which refuses a protected branch, the base branch, a changed head or a failing check. It works with GitHub and with the local tracker (`git merge --no-ff`, then a push of the integration branch when there is a remote). **The final PR and `build-task` PRs are never merged for you.**
+- **`lane_runner: "session"`** (missing means `agent`): each task runs in its own Claude desktop sub session, which you can open, follow and steer. The sub session builds the task, opens its PR, watches only that PR, fixes feedback, merges it when ready, then reports back and ends. The main session wakes up and starts the next wave itself, with no click from you. Without the desktop app (plain CLI), or if the app refuses to start a session, that task falls back to a subagent lane.
+- **`## Notable issues`**: whichever mode you use, the final PR (and a `build-task` PR) ends with at most 8 one-line bullets from the build's `notes.md`, such as review blockers and how they were fixed, wontfix items, flaky or failed checks, conflicts left to you, blocked tasks and verify findings. Read this first. It says `None.` when nothing stood out.
+
+With both on, you act at the gates (intent, spec, plan), on anything reported as blocked or in conflict, and on the final PR. Details: "Lane runner" and "Auto-merge of task PRs" in [WORKFLOW.md](WORKFLOW.md).
 
 ## Saving tokens
 
@@ -78,6 +95,46 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 They are checked three times: the `check-conventions.sh` hook blocks a `git commit -m` or a new branch (`checkout -b`, `switch -c`, `branch`, `worktree add -b`) that breaks them, `check-task.sh` checks the task's branch and every commit subject before review and PR, and `/workez:doctor` checks the `naming` patterns. The types, the subject length (72) and the patterns live in `conventions` and `naming` of `.claude/workflow.json`; remove `conventions` (and set `branches.prefix`) to turn the checks off.
 
+## Turn hard rules into lint rules or tests
+
+The planner and the reviewer can only check placement against rules that are written down. `workez:project-context` looks for a **Structure** standard (folders, layers, who may import whom, where shared helpers live) in `CLAUDE.md`, `AGENTS.md` at any depth (a nested one is scoped to its folder) and `ARCHITECTURE*`. The plan lists what it found under `## Standards` and gives each task a `Placement:` line; the reviewer runs a structure checklist on every task. When nothing is found you see this warning, and the work goes on:
+
+```
+No structure rules found for <area>; placement cannot be checked
+```
+
+Even then the reviewer catches a misplaced file late, after it is written. The strongest form of a rule is a check that fails CI. Write the rule once in prose, then enforce it.
+
+Example `## Structure` section in `CLAUDE.md` or `AGENTS.md` for a Hono API:
+
+```markdown
+## Structure
+- `src/routes/`: parse input, call a service, return the response. No business logic, no DB access.
+- `src/services/`: business logic. Shared lookups (`findUserById`) live in `src/services/users.ts`.
+- `src/db/`: the DB client (`src/db/client.ts`) and schema. Only `src/db/` and services import the client.
+```
+
+Enforce it with an ESLint override (flat config) that bans the DB client in routes:
+
+```js
+{
+  files: ["src/routes/**/*.ts"],
+  rules: {
+    "no-restricted-imports": ["error", {
+      patterns: [{ group: ["**/db", "**/db/*", "@app/db", "drizzle-orm"],
+        message: "Routes call services; only services and src/db import the DB client." }],
+    }],
+  },
+}
+```
+
+Without ESLint, a few lines of bash in CI do the same (`tests/fixtures/structure-rules/check-route-imports.sh` is tested here):
+
+```bash
+bad="$(grep -rlE "from ['\"][^'\"]*db/client['\"]" src/routes || true)"
+[[ -z "$bad" ]] || { echo "routes must not import the db client: $bad"; exit 1; }
+```
+
 ## Requirements
 
 Check these before you install; `/workez:doctor` checks them for you afterwards.
@@ -86,7 +143,7 @@ Check these before you install; `/workez:doctor` checks them for you afterwards.
 
 | Tool | Version | Used for |
 |---|---|---|
-| Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build and verify watches (they run only while the session is open, for up to 7 days) |
+| Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build and verify watches (they run only while the session is open, for up to 7 days); the desktop app for `lane_runner` `session` (build lanes as sub sessions), the plain CLI falls back to subagent lanes |
 | `git` | 2.42+ | worktrees per task (`worktree add --orphan` for the evidence branch) |
 | `gh` | signed in (`gh auth login`); not needed with the local tracker | issues, sub-issues, labels, PRs |
 | `jq` | 1.6+ | every script reads `workflow.json` with it |
@@ -136,7 +193,7 @@ It writes `.claude/workflow.json` (repository, branches, commands, formatters, d
 /workez:doctor
 ```
 
-Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
+Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (`lane_runner` is `session` or `agent`, with a warning when it is `session` and the desktop session tool is missing; branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
 
 ## Status
 
@@ -183,11 +240,20 @@ This repository is both the plugin and its marketplace (`.claude-plugin/plugin.j
 
 Versions follow semantic versioning (what counts as major, minor or patch is at the top of the changelog). Installed copies update only when `version` in `.claude-plugin/plugin.json` changes, so every release bumps it:
 
-```bash
-tools/release.sh patch --dry-run   # or minor, major, X.Y.Z: shows the notes that will be released
-tools/release.sh patch             # moves Unreleased under the new version, sets plugin.json
-git commit -am "Release v0.1.1" && git tag -a v0.1.1 -m "v0.1.1" && git push --follow-tags
-```
+Work lands on `dev` through PRs; a release goes from `dev` to `main`:
+
+1. On a `chore/release-X.Y.Z` branch cut from `origin/dev`:
+   ```bash
+   tools/release.sh minor --dry-run   # or patch, major, X.Y.Z: shows the notes that will be released
+   tools/release.sh minor             # moves Unreleased under the new version, sets plugin.json
+   git commit -am "chore(release): vX.Y.Z"
+   ```
+   Open a PR `chore(release): vX.Y.Z` into `dev` and merge it.
+2. Open a PR `release: sync dev into main (vX.Y.Z)` from `dev` into `main` and merge it.
+3. Tag the merge commit on `main` and push the tag:
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z
+   ```
 
 Users then get it with `/plugin marketplace update workez`. CI runs `tools/check-version.sh`, which fails when `plugin.json` has a version without its own changelog section.
 

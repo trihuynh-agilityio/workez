@@ -22,9 +22,9 @@ command -v jq >/dev/null 2>&1 || { echo "workflow: jq is required" >&2; return 2
 # Skips $HOME, whose .claude/ is Claude Code's user folder.
 wf_find_project() {
   local d
-  d="$(cd "$1" 2>/dev/null && pwd)" || return 1
+  d="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
   while [[ -n "$d" && "$d" != "/" ]]; do
-    [[ "$d" != "$(cd "$HOME" 2>/dev/null && pwd)" && -f "$d/.claude/workflow.json" ]] && { printf '%s' "$d"; return 0; }
+    [[ "$d" != "$(cd "$HOME" 2>/dev/null && pwd -P)" && -f "$d/.claude/workflow.json" ]] && { printf '%s' "$d"; return 0; }
     d="$(dirname "$d")"
   done
   return 1
@@ -36,13 +36,13 @@ if [[ -z "${WF_PROJECT:-}" || ! -f "${WF_PROJECT:-}/.claude/workflow.json" ]]; t
     return 2 2>/dev/null || exit 2
   }
 fi
-WF_PROJECT="$(cd "$WF_PROJECT" && pwd)"
+WF_PROJECT="$(cd "$WF_PROJECT" && pwd -P)"
 
-WF_TOP="$(cd "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
+WF_TOP="$(cd "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
 # Inside a linked worktree: use the same folder of the main checkout.
 if [[ "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-dir)" != "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-common-dir)" ]]; then
   _wf_sub="$(git -C "$WF_PROJECT" rev-parse --show-prefix)"
-  [[ -f "$WF_TOP/${_wf_sub}.claude/workflow.json" ]] && WF_PROJECT="$(cd "$WF_TOP/$_wf_sub" && pwd)"
+  [[ -f "$WF_TOP/${_wf_sub}.claude/workflow.json" ]] && WF_PROJECT="$(cd "$WF_TOP/$_wf_sub" && pwd -P)"
   unset _wf_sub
 fi
 WF_CONFIG="$WF_PROJECT/.claude/workflow.json"
@@ -175,6 +175,55 @@ wf_fetch() {
   r="$(wf_remote)"
   [[ -n "$r" ]] || return 0
   git -C "$WF_TOP" fetch -q "$r" "$@"
+}
+
+# ---- Base branch ----
+# The one place that decides the base branch: features start from it, standalone tasks are cut from
+# it and their PRs target it. Scripts call wf_base; skills and agents read it from `worktree.sh base`.
+
+# wf_default_branch: the repository's default branch: the remote's HEAD (as last fetched, else asked
+# with ls-remote), else init.defaultBranch, else main.
+wf_default_branch() {
+  local r b=""
+  r="$(wf_remote)"
+  if [[ -n "$r" ]]; then
+    b="$(git -C "$WF_TOP" symbolic-ref -q --short "refs/remotes/$r/HEAD" 2>/dev/null)"
+    b="${b#"$r"/}"
+    [[ -n "$b" ]] || b="$(git -C "$WF_TOP" ls-remote --symref "$r" HEAD 2>/dev/null |
+      awk '$1 == "ref:" { sub("^refs/heads/", "", $2); print $2; exit }')"
+  fi
+  [[ -n "$b" ]] || b="$(git -C "$WF_TOP" config init.defaultBranch 2>/dev/null)"
+  printf '%s' "${b:-main}"
+}
+
+# wf_base: branches.base of workflow.json, else the repository's default branch (wf_default_branch).
+wf_base() {
+  local b
+  b="$(cfg .branches.base)"
+  if [[ -n "$b" ]]; then printf '%s' "$b"; else wf_default_branch; fi
+}
+
+# wf_base_check <worktree folder | branch> [target branch]: the preflight. True when <remote>/<target>
+# (the local <target> without a remote; default target: wf_base) is an ancestor of the worktree's HEAD
+# or of the branch. Otherwise prints one line naming the target, the HEAD and how many of the
+# target's commits it misses, and returns 1. Never changes anything; the cure is a new worktree.
+wf_base_check() {
+  local what="$1" target="${2:-}" ref rev dir="$WF_TOP" head name missing
+  [[ -n "$target" ]] || target="$(wf_base)"
+  ref="$(wf_ref "$target")"
+  # A branch other than the base that was never pushed (a new integration branch) is checked locally.
+  if ! git -C "$WF_TOP" rev-parse -q --verify "$ref^{commit}" >/dev/null; then
+    [[ "$target" != "$(wf_base)" ]] && git -C "$WF_TOP" rev-parse -q --verify "refs/heads/$target" >/dev/null &&
+      ref="$target" || { echo "$ref not found; fetch it first: git fetch $(wf_remote) $target"; return 1; }
+  fi
+  if [[ -d "$what" ]]; then dir="$what"; rev=HEAD; name="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  else rev="$what"; name="$what"; fi
+  head="$(git -C "$dir" rev-parse -q --verify --short "$rev^{commit}" 2>/dev/null)" ||
+    { echo "$what is neither a worktree nor a branch of this repository"; return 1; }
+  git -C "$dir" merge-base --is-ancestor "$ref" "$rev" 2>/dev/null && return 0
+  missing="$(git -C "$dir" rev-list --count "$rev..$ref")"
+  echo "HEAD $head ($name) is not cut from $ref: it misses $missing commit(s) of $ref (base branch: $(wf_base))"
+  return 1
 }
 
 # wf_issue_ok <Issue field>: true when a plan task's Issue field is ready: "#<n>", or "local" in local mode.

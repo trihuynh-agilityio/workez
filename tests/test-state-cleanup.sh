@@ -78,6 +78,8 @@ claim s1 Bash '{"command":"cat .claude/workflow/omega/state.json"}'
 [[ "$(cat $W/omega/owner)" == s2 ]] && ok "claim: reading state.json claims nothing" || ko "claim: read claimed"
 claim s3 Skill '{"skill":"workez:design-feature","args":"omega"}'
 [[ "$(cat $W/omega/owner)" == s3 ]] && ok "claim: running a workez skill for the feature takes it over" || ko "claim: Skill"
+claim s4 Skill '{"skill":"workez:run-lane","args":"omega"}'
+[[ "$(cat $W/omega/owner)" == s3 ]] && ok "claim: a lane sub session (run-lane) never becomes the owner" || ko "claim: run-lane claimed"
 claim s1 Skill '{"skill":"other:thing","args":"omega"}'
 claim s1 Skill '{"skill":"workez:plan-feature","args":"add a search box"}'
 [[ "$(cat $W/omega/owner)" == s3 && ! -e $W/add ]] && ok "claim: other skills and free-text arguments claim nothing" || ko "claim: false claim"
