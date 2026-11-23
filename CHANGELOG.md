@@ -11,6 +11,8 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 ## [Unreleased]
 
 ### Added
+- `scripts/note.sh` and the per-feature `notes.md` (`.claude/workflow/<feature>/`, git-ignored): one line per decision point (review blocker and major findings and their fix, wontfix, flaky or infra checks, conflicts, used-up fix budget, UI check FAIL, blocked tasks, spec deviations, verify FAIL, UNVERIFIED and major findings), never routine passes.
+- A short `## Notable issues` section (at most 8 bullets, condensed from `notes.md`) in the final PR (`build-feature` step 5, refreshed by `verify-feature`) and in `build-task` PRs.
 - Structure standard: `workez:project-context` also finds where code goes (folders, layers, import boundaries) in `CLAUDE.md`, `AGENTS.md` at any depth and `ARCHITECTURE*`, and accepts a task description. A missing structure standard returns the warning `No structure rules found for <area>; placement cannot be checked` instead of a question.
 - Plans (`write-plan`, `build-task`) have a `## Standards` section and a required task field `Placement`; `create-task-issues` and the `build-task` approval show them. `code-reviewer` runs a structure checklist on every review (reuse, layer boundaries, `as`/`any`, duplication) and the `implementer` follows `Placement`.
 - README section "Turn hard rules into lint rules or tests", with `tests/test-structure-rules.sh` and fixtures.
@@ -19,6 +21,8 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 - `doctor.sh` checks the base branch the plugin really uses: plans whose PR target is not `branches.base` (standalone tasks) or is a protected branch, task worktrees not cut from their PR target, and (online) a remote default branch that differs from `branches.base`.
 
 ### Changed
+- `append-pr-section` (`github-ops` and `local-ops.sh`) replaces an existing section in place instead of moving it to the end of the body.
+- The final PR body has a `## Tasks` heading over the task PR table.
 - One resolver for the base branch, `wf_base` in `lib/config.sh` (`branches.base`, else the remote's default branch), used by every script and hook; the skills and the implementer read it from `worktree.sh base` and make worktrees only through `worktree.sh create`, so a project whose base is `dev` never gets a worktree cut from `main`.
 - `check-task.sh` reads the task's **Files** as one line or a bullet list under it, with or without backticks; stray backticks, quotes, trailing commas and notes like `(new)` are dropped.
 - `check-task.sh` finds moves with `git diff -M` on the whole work, staged or not, so a moved file counts once and only its new path needs to be in **Files**.
