@@ -3,10 +3,18 @@
 # compare links, and sets "version" in .claude-plugin/plugin.json (that line only). It never commits,
 # tags or pushes; it prints the next steps for you.
 #   tools/release.sh major|minor|patch|X.Y.Z [--dry-run]
+#   tools/release.sh notes X.Y.Z    prints that version's CHANGELOG.md section (the GitHub Release notes)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 manifest="$root/.claude-plugin/plugin.json"; log="$root/CHANGELOG.md"
 bump="${1:-}"; dry=0; [[ "${2:-}" == --dry-run ]] && dry=1
+
+if [[ "$bump" == notes ]]; then
+  v="${2:-}"; [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: tools/release.sh notes X.Y.Z" >&2; exit 2; }
+  section="$(awk -v h="## [$v] " 'index($0, h) == 1 {on=1; next} on && /^## \[/ {exit} on' "$log" | sed '/./,$!d')"
+  [[ -n "$section" ]] || { echo "release: CHANGELOG.md has no '## [$v]' section" >&2; exit 2; }
+  printf '%s\n' "$section"; exit 0
+fi
 command -v jq >/dev/null || { echo "release: jq is required" >&2; exit 2; }
 
 current="$(jq -r .version "$manifest")"
@@ -51,3 +59,4 @@ echo "Released $current -> $next in CHANGELOG.md and .claude-plugin/plugin.json.
 echo "  git commit -am \"chore(release): v$next\"   # on chore/release-$next, then a PR into dev"
 echo "  then a PR 'release: sync dev into main (v$next)' from dev into main"
 echo "  after it is merged: git tag -a v$next -m \"v$next\" origin/main && git push origin v$next"
+echo "  then the GitHub Release: tools/release.sh notes $next | gh release create v$next --verify-tag --title v$next --latest --notes-file -"

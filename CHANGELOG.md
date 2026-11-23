@@ -10,6 +10,9 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+- `tools/release.sh notes X.Y.Z` prints a version's `CHANGELOG.md` section, for the GitHub Release notes; the release steps (README and the script's output) end with `gh release create`.
+
 ## [0.7.0] - 2026-11-23
 
 ### Added

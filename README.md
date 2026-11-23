@@ -254,6 +254,10 @@ Work lands on `dev` through PRs; a release goes from `dev` to `main`:
    ```bash
    git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z
    ```
+4. Publish the GitHub Release from that tag, with the version's changelog section as its notes (a pushed tag alone does not show on the Releases page):
+   ```bash
+   tools/release.sh notes X.Y.Z | gh release create vX.Y.Z --verify-tag --title vX.Y.Z --latest --notes-file -
+   ```
 
 Users then get it with `/plugin marketplace update workez`. CI runs `tools/check-version.sh`, which fails when `plugin.json` has a version without its own changelog section.
 
