@@ -10,6 +10,8 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-23
+
 ### Added
 - `tools/release.sh notes X.Y.Z` prints a version's `CHANGELOG.md` section, for the GitHub Release notes; the release steps (README and the script's output) end with `gh release create`.
 
@@ -116,7 +118,8 @@ First release of workez: a Claude Code plugin that takes a feature from intent t
 - `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
 - Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
-[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.4.0...v0.5.0
