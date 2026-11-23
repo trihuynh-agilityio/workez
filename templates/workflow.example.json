@@ -20,7 +20,6 @@
     "task_prs": false,
     "method": "merge"
   },
-  "lane_runner": "session",
   "conventions": {
     "commit_types": [
       "feat",

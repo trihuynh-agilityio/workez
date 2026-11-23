@@ -82,6 +82,9 @@ jq '.naming.task_branch = "task/{task_slug}" | .lanes.C = {"x": 1} | del(.github
 out="$(doc)"; rc=$?
 [[ $rc == 1 && "$out" == *"FAIL  branch naming"*task_branch* && "$out" == *"FAIL  lanes"* && "$out" == *"missing: github.repo"* ]] \
   && ok "doctor: bad config fails (prefix, lanes, missing key)" || ko "doctor bad config: $rc $out"
+[[ "$(doc)" != *lane_runner* ]] && ok "doctor: no lane_runner line without the key" || ko "doctor lane_runner absent"
+jq '.lane_runner = "session"' "$T/w.json" >"$P/.claude/workflow.json"
+[[ "$(doc)" == *"WARN  lane_runner"*removed* ]] && ok "doctor: warns about the removed lane_runner key" || ko "doctor lane_runner: $(doc)"
 cp "$T/w.json" "$P/.claude/workflow.json"
 mkdir -p "$P/.claude/hooks" && touch "$P/.claude/hooks/next-phase.sh"
 [[ "$(doc)" == *"WARN  duplicate copy"* ]] && ok "doctor: warns about a duplicate copy in the project" || ko "doctor duplicate copy"

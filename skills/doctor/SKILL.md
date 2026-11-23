@@ -14,6 +14,4 @@ Report the result to the user:
 - Then each `WARN` line and what it costs (for example no Chrome: the UI checks cannot run).
 - Then one line: ready, or not ready until the failures are fixed.
 
-After the script, read the `lane_runner` line it printed. With `session`, check whether `mcp__ccd_session__start_session` is available in this session (`ToolSearch` with `select:mcp__ccd_session__start_session`; a deferred tool counts). Report OK when it is, else a WARN: `lane_runner is session but the session tool is missing (not the Claude desktop app): build lanes will run as subagents`. Include that WARN in the warnings list.
-
 Do not fix anything yourself unless the user asks.

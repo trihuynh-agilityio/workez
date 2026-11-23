@@ -6,15 +6,11 @@
 # states-file, one line each, tab or space separated (from github-ops get-pr-state):
 #   <branch> <OPEN|MERGED|CLOSED|NONE> [pr-number]
 #   CHECK <task-id> PASS     the integration check of a task that has no PR of its own
-#   LANE <task-id> <status> <pr|-> <sha|->   a lane's own record (from lane-result.sh states); only used for a
-#       task with no PR on GitHub: starting or running -> running (counts like waiting); blocked or failed ->
-#       lane_blocked; stale, merged, pr_open or anything else is ignored. MERGED/OPEN/CLOSED on GitHub win.
 # The integration task is the one whose Branch says "(only if fixes are needed)"; its line has integration=yes.
 # Output: one line per task, then CURRENT_WAVE, ACTION (start|integrate|wait|blocked|finish) and the tasks it concerns.
 # ACTION=integrate: only integration tasks are left to start; run their check in the caller, not as a lane.
 # The Issue field is "#<n>", or "local" with the local tracker (tracker in workflow.json).
-# Task status: done (MERGED, or CHECK PASS), waiting (OPEN), closed (CLOSED unmerged), running (lane active), lane_blocked,
-# todo, resume (todo with a local branch).
+# Task status: done (MERGED, or CHECK PASS), waiting (OPEN), closed (CLOSED unmerged), todo, resume (todo with a local branch).
 
 plan="${1:-}"; states="${2:-}"
 [[ -f "$plan" && -f "$states" ]] || { echo "usage: build-position.sh <plan-path> <states-file>" >&2; exit 2; }
@@ -38,7 +34,6 @@ tasks="$(awk '
 
 state_of() { awk -v b="$1" '$1 == b { print $2; exit }' "$states"; }
 pr_of()    { awk -v b="$1" '$1 == b { print $3; exit }' "$states"; }
-lane_of()  { awk -v t="$1" '$1 == "LANE" && $2 == t { print $3; exit }' "$states"; }
 checked()  { awk -v t="$1" '$1 == "CHECK" && $2 == t && $3 == "PASS" { f = 1 } END { exit !f }' "$states"; }
 
 order=(); st_list=(); wv_list=(); int_list=()
@@ -51,8 +46,6 @@ while IFS=$'\t' read -r id wave lane issue branch optional src; do
     CLOSED) s=closed ;;
     *)
       if ((optional)) && checked "$id"; then s=done
-      elif case "$(lane_of "$id")" in starting | running) true ;; *) false ;; esac; then s=running
-      elif case "$(lane_of "$id")" in blocked | failed) true ;; *) false ;; esac; then s=lane_blocked
       elif [[ -n "$branch" ]] && git rev-parse --verify -q "refs/heads/$branch" >/dev/null 2>&1; then s=resume
       fi ;;
   esac
@@ -74,25 +67,23 @@ if [[ -z "$current" ]]; then
 fi
 echo "CURRENT_WAVE=$current"
 
-todo=(); integ=(); closed=(); bad=(); wait=(); lblk=()
+todo=(); integ=(); closed=(); bad=(); wait=()
 for i in "${!order[@]}"; do
   id="${order[$i]}"
   case "${st_list[$i]}" in
     closed) closed+=("$id") ;;
     blocked_no_issue) bad+=("$id") ;;
-    lane_blocked) lblk+=("$id") ;;
   esac
   [[ "${wv_list[$i]}" == "$current" ]] || continue
   case "${st_list[$i]}" in
     todo | resume)
       # An integration task with a local branch needed fixes: it runs as a normal lane.
       if ((int_list[i])) && [[ "${st_list[$i]}" == todo ]]; then integ+=("$id"); else todo+=("$id"); fi ;;
-    waiting | running) wait+=("$id") ;;
+    waiting) wait+=("$id") ;;
   esac
 done
 
 if ((${#closed[@]})); then echo "ACTION=blocked"; echo "TASKS=${closed[*]} (PR closed without merge)"
-elif ((${#lblk[@]})); then echo "ACTION=blocked"; echo "TASKS=${lblk[*]} (lane blocked or failed)"
 elif ((${#bad[@]})); then echo "ACTION=blocked"; echo "TASKS=${bad[*]} (no sub-issue number; run create-task-issues)"
 elif ((${#todo[@]})); then echo "ACTION=start"; echo "TASKS=${todo[*]}"
 elif ((${#integ[@]})) && ((${#wait[@]} == 0)); then echo "ACTION=integrate"; echo "TASKS=${integ[*]}"
