@@ -31,7 +31,8 @@ case "$(jq -r '.tool_name // empty' <<<"$input")" in
   Skill)
     skill="$(jq -r '.tool_input.skill // empty' <<<"$input")"
     arg="$(jq -r '.tool_input.args // empty' <<<"$input" | awk '{print $1}')"
-    [[ "$skill" == workez:* && "$arg" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] && features+=("$arg")
+    # A lane sub session works for a feature it does not own; it must never become the owner.
+    [[ "$skill" == workez:* && "$skill" != workez:run-lane && "$arg" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] && features+=("$arg")
     ;;
 esac
 
