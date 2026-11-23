@@ -89,13 +89,15 @@ Read the state and run `gh-watch.sh <Branch>:<Issue number> --no-feedback` (read
 
 ## 7. Build
 
-Only with plan line 2 `Status: approved.`; otherwise go back to step 4. The plan's `PR target:` must be `<base>`; if it is not (the plan was written against another branch), stop and say so. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, and the lane instructions of `${CLAUDE_PLUGIN_ROOT}/skills/build-feature/SKILL.md` step 3 (it reads that file), with these changes for a standalone task:
+Only with plan line 2 `Status: approved.`; otherwise go back to step 4. The plan's `PR target:` must be `<base>`; if it is not (the plan was written against another branch), stop and say so. Launch **one lane subagent** with the `Agent` tool (`model: sonnet`), with the plan path, task id `T1`, lane `A`, the project root, carrying out `${CLAUDE_PLUGIN_ROOT}/skills/run-lane/SKILL.md` with runner `agent` (it reads that file), with these changes for a standalone task. `build-task` always uses a subagent lane, whatever `lane_runner` says: there is one task, no later wave to start, and this session already watches its PR.
+
+Changes:
 
 - The implementer makes the worktree with `worktree.sh create <Branch> --from <base>`: it runs `git fetch <remote> <base>`, cuts the branch from `<remote>/<base>` (never the local `<base>`, never the repository's default branch), and fails the preflight unless `<remote>/<base>` is an ancestor of the worktree's `HEAD`. A `PREFLIGHT FAILED` comes back as `BLOCKED <its message>`; never repair the worktree with `git reset`, remove and recreate it.
 - The code reviewer's first round gets `git merge-base <remote>/<base> HEAD` (run in the worktree) as its base commit, so a stale local `<base>` never adds other commits to the review.
 - After the review PASS and the UI check (if any), the lane runs every `commands.test` command once in the worktree's project folder. A failure returns `FAILED <the failing output>`; the lane never changes tests or code outside `Files:` to make it pass.
 - In the PR body (`workez:create-task-pr` step 5), the issue line is `Closes #<n>`, not `Refs`, because the PR goes straight to `<base>`; `publish-evidence.sh` gets the task's `Branch:` as its third argument (the evidence branch is `<Branch>-evidence`), never `<base>`.
-- The lane writes notes as `build-feature` step 3 says (BLOCKED or FAILED included), and puts a `## Notable issues` section, built per `build-feature` "Notable issues" from `.claude/workflow/<slug>/notes.md`, in the PR body right before `## Workflow details`.
+- The lane writes notes as `run-lane` says (BLOCKED or FAILED included), and puts a `## Notable issues` section, built per `build-feature` "Notable issues" from `.claude/workflow/<slug>/notes.md`, in the PR body right before `## Workflow details`.
 
 The lane returns `PR_READY <body file>`, `PR_EXISTS <url>`, `BLOCKED <reason>` or `FAILED <reason>`. Then call `workez:github-ops` once: for `PR_READY` the two lines of `workez:create-task-pr` step 6; for `BLOCKED` or `FAILED` `swap-label <n> status:in-progress status:blocked`, set status `blocked`, report the reason and stop. Save the PR number in `tasks.T1.pr`.
 
