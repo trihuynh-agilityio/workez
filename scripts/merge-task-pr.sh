@@ -108,13 +108,9 @@ if ! out="$( (cd "$(wf_project_in "$wt")" && "$here/check-pr-ready.sh" "$task" "
   refuse "check-pr-ready failed: ${out:0:400}"
 fi
 
-# Notes line after a real merge.
+# Notes line after a real merge, through note.sh (it skips an identical line).
 write_note() { # <subject> <what> <merge sha>
-  local d="$WF_PROJECT/.claude/workflow/$feature" subject line
-  subject="$(tr '\n' ' ' <<<"$1" | sed -E 's/ +$//')"
-  line="- $subject: auto-merged $2 (${3:0:7})"
-  mkdir -p "$d" && touch "$d/notes.md" || return 0
-  grep -qxF -- "$line" "$d/notes.md" || printf '%s\n' "$line" >>"$d/notes.md"
+  "$here/note.sh" "$feature" "$1" "auto-merged $2 (${3:0:7})" >/dev/null 2>&1 || true
 }
 
 if ! wf_local; then

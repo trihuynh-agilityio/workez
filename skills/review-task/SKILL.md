@@ -3,7 +3,7 @@ name: review-task
 description: Phase 3 (Build) local review loop for ONE task, after the implementer and before the UI check or PR. Reviews the task's commits, has the implementer fix blocker and major findings, and writes the review report. Run with the feature folder name and the task id.
 model: opus
 disable-model-invocation: true
-allowed-tools: Read Write Edit Glob Grep Agent Bash(git diff*) Bash(git log*) Bash(git rev-parse *) Bash(git status*) Bash(git add *) Bash(git commit *) Bash(*/scripts/check-task.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/check-review.sh *)
+allowed-tools: Read Write Edit Glob Grep Agent Bash(git diff*) Bash(git log*) Bash(git rev-parse *) Bash(git status*) Bash(git add *) Bash(git commit *) Bash(*/scripts/check-task.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/check-review.sh *) Bash(*/scripts/note.sh *)
 ---
 
 # Review one task
@@ -48,12 +48,12 @@ Statuses: `open`, `fixed`, `wontfix: <reason>`, `minor`. The report starts with 
 
 ## 4. Fix loop
 
-- **CHANGES_REQUIRED**: send **only** the blocker and major findings to the `workez:implementer` agent in fix mode (same worktree, plan path, task id, the findings). It fixes them in a **new** commit, never an amend, re-runs `Verify:` and `check-task.sh` on the whole task diff, so the 300-line and 10-file limits are cumulative, and may answer a finding with `wontfix` and a written reason. Record each outcome in the report, then go back to step 2 for the next round.
+- **CHANGES_REQUIRED**: send **only** the blocker and major findings to the `workez:implementer` agent in fix mode (same worktree, plan path, task id, the findings). It fixes them in a **new** commit, never an amend, re-runs `Verify:` and `check-task.sh` on the whole task diff, so the 300-line and 10-file limits are cumulative, and may answer a finding with `wontfix` and a written reason. Record each outcome in the report, and for each blocker or major finding write one note (`${CLAUDE_PLUGIN_ROOT}/scripts/note.sh <feature-name> #<n> "review <severity>: <problem>" "<outcome>"`; `#<n>` is the task's `Issue:` number, on the local tracker its title; outcome `fixed in <short sha>` or `wontfix: <reason>`). Then go back to step 2 for the next round.
 - **PASS**: continue with step 6.
 
 ## 5. Blocked
 
-If blocker or major findings are still open after round 3, write the final section with `Verdict: BLOCKED` (the same layout as step 6, without a PASS), show the user the open findings, and stop. No PR, no UI check.
+If blocker or major findings are still open after round 3, write the final section with `Verdict: BLOCKED` (the same layout as step 6, without a PASS), write a note per open blocker or major finding (outcome `still open, task blocked`), show the user the open findings, and stop. No PR, no UI check.
 
 ## 6. PASS
 
