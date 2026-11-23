@@ -44,7 +44,7 @@
 4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
-The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
+The final PR carries a short `## Notable issues` section (blocked or wontfix items, failed checks, conflicts left to you, verify findings), so you can review just that PR. The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
 
 **One small change?** `/workez:build-task <change>` (or `#<issue>`) skips the phases: you approve a one-task plan, and it runs the same pipeline (implementer, review loop, UI check, full test suite) to one PR straight to the base branch, then watches it until you merge.
 

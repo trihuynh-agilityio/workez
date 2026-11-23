@@ -82,6 +82,17 @@ grep -q "Body text" "$md" && grep -q 'Target branch: `feat/demo`' "$md" && ok "c
 printf '## Verification\nAll good.\n' >"$T/sec.md"
 [[ "$(ops append-pr-section feat/demo-notes "$T/sec.md")" == *added ]] && [[ "$(ops append-pr-section feat/demo-notes "$T/sec.md")" == *replaced ]] \
   && [[ "$(grep -c '^## Verification' "$md")" == 1 ]] && ok "append-pr-section: added then replaced" || ko "append-pr-section"
+# A section that exists is replaced in place, not moved to the end.
+{ printf '# feat: add notes\n\n## Summary\nSome text.\n\n## Notable issues\n- old bullet\n\n## Tasks\n| T1 | done |\n\nCreated by workflow; review and merge by a human.\n'; } >"$md"
+printf '## Notable issues\n- new bullet\n' >"$T/notable.md"
+[[ "$(ops append-pr-section feat/demo-notes "$T/notable.md" "## Notable issues")" == *replaced ]] \
+  && grep -qF -- '- new bullet' "$md" && ! grep -qF -- 'old bullet' "$md" \
+  && [[ "$(grep -c '^## Notable issues' "$md")" == 1 ]] \
+  && (( $(grep -n '^## Notable issues' "$md" | cut -d: -f1) < $(grep -n '^## Tasks' "$md" | cut -d: -f1) )) \
+  && grep -qxF '| T1 | done |' "$md" && [[ "$(tail -n 1 "$md")" == "Created by workflow; review and merge by a human." ]] \
+  && [[ "$(grep -A2 -x -- '- new bullet' "$md" | sed -n 2p)" == "" ]] \
+  && [[ "$(grep -A2 -x -- '- new bullet' "$md" | sed -n 3p)" == "## Tasks" ]] \
+  && ok "append-pr-section: replaces a section in place" || ko "append-pr-section in place"
 [[ "$(ops get-pr-feedback feat/demo-notes)" == "no new feedback" && "$(ops get-pr-checks feat/demo-notes)" == "no failed checks" ]] \
   && ok "feedback and checks: none" || ko "feedback/checks"
 # The user merges on the host (a merge commit), simulated in a second clone; the source branch is deleted.

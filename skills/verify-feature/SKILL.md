@@ -2,14 +2,14 @@
 name: verify-feature
 description: Phase 4 (Verify), started by the Stop hook when build-feature finishes (or run by hand) after every task PR of a feature is merged into the integration branch and the final PR to the base branch exists. Verifies the WHOLE feature on a throwaway worktree (merged with the base branch locally): mechanical checks, feature E2E, an AC table, a whole-feature review, then writes verification.md (local only, posted to the feature issue) and a PASS or FAIL verdict. On FAIL it reports the failure, writes plan-fix.md from the failed items and, after your approval, creates the fix issues and starts the fix build. On PASS it watches the final PR and, once you merge it, clears the feature's local data (local branches, worktrees, state, evidence) and labels the feature issue phase:done; the issue stays open. Run with the feature folder name; add --dry-run to print what each step would do without writing anything. Re-run any time.
 model: opus
-allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(git status*) Bash(git log*) Bash(git diff*) Bash(git show *) Bash(git rev-parse *) Bash(git branch*) Bash(git merge-base *) Bash(git ls-remote *) Bash(git worktree *) Bash(*/scripts/build-position.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/verify-worktree.sh *) Bash(*/scripts/verify-checks.sh *)
+allowed-tools: Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(git status*) Bash(git log*) Bash(git diff*) Bash(git show *) Bash(git rev-parse *) Bash(git branch*) Bash(git merge-base *) Bash(git ls-remote *) Bash(git worktree *) Bash(*/scripts/build-position.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/verify-worktree.sh *) Bash(*/scripts/verify-checks.sh *) Bash(*/scripts/note.sh *)
 ---
 
 # Verify a feature
 
 Phase 4. Per-task checks ran on isolated task branches; this verifies the whole feature as it would land in the base branch. It is idempotent. It never edits code on the integration branch, never merges or approves anything, never pushes anything, and never commits `verification.md`: the report stays local and its full text goes to the feature issue as a comment.
 
-Arguments: `<feature-name> [--dry-run]`. With `--dry-run`, run only the read-only parts (step 1 reads, no state write, no worktree) and for every other step print one line "would do: …" naming the commands, files and GitHub calls. Write nothing, create nothing, call no `swap-label`, `comment` or `append-pr-section`.
+Arguments: `<feature-name> [--dry-run]`. With `--dry-run`, run only the read-only parts (step 1 reads, no state write, no worktree) and for every other step print one line "would do: …" naming the commands, files and GitHub calls. Write nothing, create nothing, call no `swap-label`, `comment`, `append-pr-section` or `note.sh`.
 
 ## Paths
 
@@ -73,13 +73,16 @@ Write `<evidence>/verification.md`:
 
 Never commit or push it. Step 8 posts it.
 
+Then, not in `--dry-run`, write notes with `${CLAUDE_PLUGIN_ROOT}/scripts/note.sh <feature-name> verify "<what>" "<outcome>"`: for each failed check `check <step> failed` → `FAIL`, each UNVERIFIED AC `R<n> UNVERIFIED: <reason>`, each blocker or major finding `<severity> <file:line>: <problem>`; nothing for PASS items, except one `PASS after fix round <n>` line on a PASS when `fix_round` > 0. Then rebuild the Notable issues section from the whole `notes.md` (the build bullets stay) as in `${CLAUDE_PLUGIN_ROOT}/skills/build-feature/SKILL.md` "Notable issues", into `<project root>/.claude/workflow/<feature-name>/notable.md`.
+
 ## 8. Hand-off
 
 Call `workez:github-ops` (Haiku) once with one batch, not in `--dry-run`:
 
 1. `comment <feature issue> --body-file <copy>`: the whole report, as a copy of `verification.md` in the scratchpad with `<!-- workflow-reply -->` as its first line and its `# Verification:` heading turned into `## Verification report:`. Keep the comment URL it returns.
 2. `append-pr-section <final PR> <section file>`: a `## Verification` section with the verdict, the AC table summary (counts, UNVERIFIED rows), a link to that issue comment for the full report (write it as `$1.url`; `workez:github-ops` fills it in), and the minor findings. The rest of the body stays as it is.
-3. PASS only: `swap-label <feature issue> phase:build-done phase:verify-done`.
+3. `append-pr-section <final PR> <notable.md> "## Notable issues"` (the section is replaced as a whole, in place).
+4. PASS only: `swap-label <feature issue> phase:build-done phase:verify-done`.
 
 Then, PASS: watch the final PR until it is merged (not in `--dry-run`). Call `CronCreate` for every 10 minutes with this plain-text prompt (never a skill call, because a scheduled run cannot invoke a user-only skill): "Run ${CLAUDE_PLUGIN_ROOT}/scripts/gh-watch.sh <integration branch>:<feature issue> --no-feedback. Exit 0: do nothing more, call no agent and reply with nothing. Otherwise read the STATE line. MERGED: read <project root>/${CLAUDE_PLUGIN_ROOT}/skills/verify-feature/SKILL.md and carry out step 9 for <feature-name>. CLOSED: call CronDelete <id>, set state status to blocked and loop_id to null, and tell the user the final PR was closed without merge." Write the state `{"feature": …, "phase": "verify", "status": "waiting_merge", "handed_off": true, "fix_round": n, "loop_id": "<cron id>"}`. Say that the watch only runs while this session is open and idle and lasts at most 7 days; after a merge it missed, rerunning `/workez:verify-feature <feature-name>` does step 9. FAIL: the label stays; state status `failed`, with `fix_round`. Then do "Failure handling".
 
