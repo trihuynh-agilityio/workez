@@ -19,6 +19,7 @@
 ## Contents
 
 - [How it works](#how-it-works)
+- [Review only the final PR](#review-only-the-final-pr)
 - [Saving tokens](#saving-tokens)
 - [Commits and branches](#commits-and-branches)
 - [Turn hard rules into lint rules or tests](#turn-hard-rules-into-lint-rules-or-tests)
@@ -41,16 +42,31 @@
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
 3. **Plan the work** – `plan.md`: waves of at most two tasks, size limits, acceptance-criteria coverage, then one GitHub sub-issue per task.
-4. **Build** – two lanes in parallel (with `lane_runner` `session`, each task in its own Claude desktop sub session): implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge (or, with the opt-in `auto_merge.task_prs`, merges ready task PRs into the integration branch itself), fixes PR feedback and failed CI checks, and tells you about merge conflicts.
+4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
-The final PR carries a short `## Notable issues` section (blocked or wontfix items, failed checks, conflicts left to you, verify findings), so you can review just that PR. The `Stop` hook moves from one phase to the next. Nothing in the workflow approves or force-pushes, and it merges only a ready task PR into the integration branch, and only when you turn on `auto_merge.task_prs` (off by default); the final PR is always yours.
+The `Stop` hook moves from one phase to the next. Nothing in the workflow approves or force-pushes, and by default it merges nothing: you merge every task PR and the final PR. To review only the final PR, see [Review only the final PR](#review-only-the-final-pr).
 
 **One small change?** `/workez:build-task <change>` (or `#<issue>`) skips the phases: you approve a one-task plan, and it runs the same pipeline (implementer, review loop, UI check, full test suite) to one PR straight to the base branch, then watches it until you merge.
 
 <p align="center">
   <img src="docs/assets/build-lanes.gif" alt="Two task cards move in parallel through implementer, check-task, review loop, ui-verifier and task PR in lanes A and B" width="880">
 </p>
+
+## Review only the final PR
+
+Two optional keys in `.claude/workflow.json` take the task PRs off your plate:
+
+```json
+"auto_merge": { "task_prs": true, "method": "merge" },
+"lane_runner": "session"
+```
+
+- **`auto_merge.task_prs`** (off by default): the build merges a task PR into the feature's integration branch with a merge commit once it is ready: local review PASS, UI check passed, every CI check green, no unhandled feedback and no conflict. Anything else waits for you as before. The merge goes through `scripts/merge-task-pr.sh`, which refuses a protected branch, the base branch, a changed head or a failing check. It works with GitHub and with the local tracker (`git merge --no-ff`, then a push of the integration branch when there is a remote). **The final PR and `build-task` PRs are never merged for you.**
+- **`lane_runner: "session"`** (missing means `agent`): each task runs in its own Claude desktop sub session, which you can open, follow and steer. The sub session builds the task, opens its PR, watches only that PR, fixes feedback, merges it when ready, then reports back and ends. The main session wakes up and starts the next wave itself, with no click from you. Without the desktop app (plain CLI), or if the app refuses to start a session, that task falls back to a subagent lane.
+- **`## Notable issues`**: whichever mode you use, the final PR (and a `build-task` PR) ends with at most 8 one-line bullets from the build's `notes.md`, such as review blockers and how they were fixed, wontfix items, flaky or failed checks, conflicts left to you, blocked tasks and verify findings. Read this first. It says `None.` when nothing stood out.
+
+With both on, you act at the gates (intent, spec, plan), on anything reported as blocked or in conflict, and on the final PR. Details: "Lane runner" and "Auto-merge of task PRs" in [WORKFLOW.md](WORKFLOW.md).
 
 ## Saving tokens
 
@@ -224,11 +240,20 @@ This repository is both the plugin and its marketplace (`.claude-plugin/plugin.j
 
 Versions follow semantic versioning (what counts as major, minor or patch is at the top of the changelog). Installed copies update only when `version` in `.claude-plugin/plugin.json` changes, so every release bumps it:
 
-```bash
-tools/release.sh patch --dry-run   # or minor, major, X.Y.Z: shows the notes that will be released
-tools/release.sh patch             # moves Unreleased under the new version, sets plugin.json
-git commit -am "Release v0.1.1" && git tag -a v0.1.1 -m "v0.1.1" && git push --follow-tags
-```
+Work lands on `dev` through PRs; a release goes from `dev` to `main`:
+
+1. On a `chore/release-X.Y.Z` branch cut from `origin/dev`:
+   ```bash
+   tools/release.sh minor --dry-run   # or patch, major, X.Y.Z: shows the notes that will be released
+   tools/release.sh minor             # moves Unreleased under the new version, sets plugin.json
+   git commit -am "chore(release): vX.Y.Z"
+   ```
+   Open a PR `chore(release): vX.Y.Z` into `dev` and merge it.
+2. Open a PR `release: sync dev into main (vX.Y.Z)` from `dev` into `main` and merge it.
+3. Tag the merge commit on `main` and push the tag:
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z" origin/main && git push origin vX.Y.Z
+   ```
 
 Users then get it with `/plugin marketplace update workez`. CI runs `tools/check-version.sh`, which fails when `plugin.json` has a version without its own changelog section.
 
