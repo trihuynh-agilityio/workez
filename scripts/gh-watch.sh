@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Read-only watch over task PRs, for the build-feature cron and its position step. Writes nothing,
 # never prints comment text, so a run with nothing new needs no agent.
-#   gh-watch.sh <branch:issue>... [--handled <id,id,...>] [--settled <pr,pr,...>] [--no-feedback]
+#   gh-watch.sh <branch:issue>... [--handled <id,id,...>] [--settled <pr,pr,...>] [--no-feedback] [--ready]
 # Output, one line each:
 #   STATE <branch> <OPEN|MERGED|CLOSED|NONE> <pr|-> <issue>     the most recent PR of the branch
 #   FEEDBACK <pr> <id> <author>                                  new feedback on an OPEN PR
 #   CHECKS <pr> checks-<head sha>                                a failed check on an OPEN PR's head
 #   CONFLICT <pr> conflict-<head sha>                            an OPEN PR that conflicts with its base
+#   READY <pr> ready-<head sha12> <full head sha>                an OPEN PR that is ready to auto-merge (only with --ready)
 # Feedback is filtered as github-ops get-pr-feedback does: only github.feedback_authors from
 # .claude/workflow.json; ids in --handled, bodies with <!-- workflow-reply -->, bodies that are only
 # github.review_trigger and APPROVED reviews with an empty body are dropped.
@@ -14,21 +15,27 @@
 # CHECKS and CONFLICT ids name the PR's head commit (12 characters), so --handled drops them until
 # a new push; pending checks and an UNKNOWN mergeable state print nothing.
 # --no-feedback: states only (the final PR watch), so new comments, checks or conflicts never wake an agent.
+# --ready: also print READY for an OPEN PR with no FEEDBACK, CHECKS or CONFLICT line in this run, every check
+# completed and green, mergeable, and whose ready-<head sha12> id is not in --handled. It only reports;
+# merge-task-pr.sh decides and merges. --no-feedback turns it off too. In local mode (no checks) every OPEN
+# branch is READY, with its tip (<remote>/<branch> when it exists, else the local branch) as the head.
 # Exit: 0 nothing new, 10 a MERGED or CLOSED PR not in --settled (wins over 20),
-#       20 new feedback, a failed check or a conflict, 2 usage or gh error.
+#       20 new feedback, a failed check or a conflict, 30 only READY lines (10 and 20 win),
+#       2 usage or gh error.
 
 # Local tracker ("tracker": "local"): no gh. Fetches the remote once (when there is one), takes each
 # branch's state from local-ops.sh get-pr-state (git ancestry, or mark-merged.sh), and uses the branch
 # as the PR id; there is never FEEDBACK, CHECKS or CONFLICT, so the exit is 0 or 10.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
-pairs=(); handled=","; settled=","; feedback=1
-usage="usage: gh-watch.sh <branch:issue>... [--handled <ids>] [--settled <prs>] [--no-feedback]"
+pairs=(); handled=","; settled=","; feedback=1; ready=0
+usage="usage: gh-watch.sh <branch:issue>... [--handled <ids>] [--settled <prs>] [--no-feedback] [--ready]"
 while (($#)); do
   case "$1" in
     --handled) handled=",${2:-},"; shift 2 ;;
     --settled) settled=",${2:-},"; shift 2 ;;
     --no-feedback) feedback=0; shift ;;
+    --ready) ready=1; shift ;;
     *:*) pairs+=("$1"); shift ;;
     *) echo "$usage" >&2; exit 2 ;;
   esac
@@ -38,7 +45,7 @@ done
 if wf_local; then
   git -C "$WF_TOP" fetch -q --prune "$(wf_remote)" 2>/dev/null || [[ -z "$(wf_remote)" ]] \
     || { echo "gh-watch: git fetch $(wf_remote) failed" >&2; exit 2; }
-  settled_new=0
+  settled_new=0; ready_new=0
   for pair in "${pairs[@]}"; do
     branch="${pair%:*}"; issue="${pair##*:}"
     row="$("$(dirname "${BASH_SOURCE[0]}")/local-ops.sh" get-pr-state "$branch")" \
@@ -47,8 +54,17 @@ if wf_local; then
     if [[ "$state" == NONE ]]; then echo "STATE $branch NONE - $issue"; continue; fi
     echo "STATE $branch $state $branch $issue"
     [[ "$state" == MERGED || "$state" == CLOSED ]] && [[ "$settled" != *",$branch,"* ]] && settled_new=1
+    if ((ready)) && [[ "$state" == OPEN ]]; then
+      rem="$(wf_remote)"; tip=""
+      [[ -n "$rem" ]] && tip="$(git -C "$WF_TOP" rev-parse -q --verify "refs/remotes/$rem/$branch" 2>/dev/null)"
+      [[ -n "$tip" ]] || tip="$(git -C "$WF_TOP" rev-parse -q --verify "refs/heads/$branch" 2>/dev/null)"
+      if [[ -n "$tip" && "$handled" != *",ready-${tip:0:12},"* ]]; then
+        echo "READY $branch ready-${tip:0:12} $tip"; ready_new=1
+      fi
+    fi
   done
   ((settled_new)) && exit 10
+  ((ready_new)) && exit 30
   exit 0
 fi
 
@@ -67,14 +83,16 @@ keep='.[]
   | select(((.state // "") == "APPROVED" and ($b | test("^\\s*$"))) | not)
   | "\(.id) \(.user.login)"'
 
-# Prints "<head sha> <mergeable> <failed check count>". A check failed when a check run concluded
+# Prints "<head sha12> <mergeable> <failed check count> <full head sha> <pending check count>". A check failed when a check run concluded
 # FAILURE, TIMED_OUT, STARTUP_FAILURE or ACTION_REQUIRED, or a status context is FAILURE or ERROR;
-# CANCELLED is left out, since a newer push cancels the older runs.
+# CANCELLED is left out, since a newer push cancels the older runs. Pending: a check run that is not
+# COMPLETED, or a status context that is PENDING or EXPECTED.
 head_q='"\(.headRefOid[0:12]) \(.mergeable) \([.statusCheckRollup[]?
   | select(((.conclusion // .state // "") as $c
-    | ["FAILURE","TIMED_OUT","STARTUP_FAILURE","ACTION_REQUIRED","ERROR"] | index($c)))] | length)"'
+    | ["FAILURE","TIMED_OUT","STARTUP_FAILURE","ACTION_REQUIRED","ERROR"] | index($c)))] | length) \(.headRefOid) \([.statusCheckRollup[]?
+  | select((.status // "COMPLETED") != "COMPLETED" or (((.status // "") == "") and ((.state // "") as $s | ["PENDING","EXPECTED"] | index($s))))] | length)"'
 
-settled_new=0; feedback_new=0
+settled_new=0; feedback_new=0; ready_new=0
 for pair in "${pairs[@]}"; do
   branch="${pair%:*}"; issue="${pair##*:}"
   row="$(gh pr list --repo "$repo" --head "$branch" --state all --json number,state,createdAt \
@@ -94,12 +112,13 @@ for pair in "${pairs[@]}"; do
 
   head="$(gh pr view "$pr" --repo "$repo" --json headRefOid,mergeable,statusCheckRollup -q "$head_q")" \
     || { echo "gh-watch: gh pr view failed for $pr" >&2; exit 2; }
-  read -r sha mergeable failed <<<"$head"
+  read -r sha mergeable failed full pending <<<"$head"
+  pr_fb=0
   if ((${failed:-0} > 0)) && [[ "$handled" != *",checks-$sha,"* ]]; then
-    echo "CHECKS $pr checks-$sha"; feedback_new=1
+    echo "CHECKS $pr checks-$sha"; feedback_new=1; pr_fb=1
   fi
   if [[ "$mergeable" == CONFLICTING && "$handled" != *",conflict-$sha,"* ]]; then
-    echo "CONFLICT $pr conflict-$sha"; feedback_new=1
+    echo "CONFLICT $pr conflict-$sha"; feedback_new=1; pr_fb=1
   fi
 
   for path in "pulls/$pr/reviews" "pulls/$pr/comments" "issues/$pr/comments"; do
@@ -108,11 +127,16 @@ for pair in "${pairs[@]}"; do
     while read -r id author; do
       [[ -n "$id" && "$handled" != *",$id,"* ]] || continue
       echo "FEEDBACK $pr $id $author"
-      feedback_new=1
+      feedback_new=1; pr_fb=1
     done <<<"$items"
   done
+
+  if ((ready && !pr_fb && ${failed:-0} == 0 && ${pending:-0} == 0)) && [[ "$mergeable" == MERGEABLE && "$handled" != *",ready-$sha,"* ]]; then
+    echo "READY $pr ready-$sha $full"; ready_new=1
+  fi
 done
 
 ((settled_new)) && exit 10
 ((feedback_new)) && exit 20
+((ready_new)) && exit 30
 exit 0
