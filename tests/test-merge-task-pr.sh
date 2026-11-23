@@ -253,9 +253,8 @@ WT1="$(mk_task T1 "$B1" notes.txt notes)"
 WT2="$(mk_task T2 "$B2" shared.txt other)"
 HEAD1="$(git -C "$WT1" rev-parse HEAD)"; HEAD2="$(git -C "$WT2" rev-parse HEAD)"
 echo "Body" >"$T/body.md"
-# (create-pr exits 1 when it has no link to print, so look for the record instead of the exit code)
 for b in "$B1" "$B2"; do
-  (cd "$P" && "$SRC/scripts/local-ops.sh" create-pr "$b" "$INT" "feat: $b" "$T/body.md" >/dev/null 2>&1)
+  (cd "$P" && "$SRC/scripts/local-ops.sh" create-pr "$b" "$INT" "feat: $b" "$T/body.md" >/dev/null 2>&1) || ko "create-pr $b exited non-zero"
   [[ -f "$P/.claude/workflow/local-mr/${b//\//-}.json" ]] || ko "create-pr $b made no record"
 done
 S=(demo T1 --sha "$HEAD1")
@@ -328,7 +327,8 @@ refused "local+remote: conflict with the integration branch -> REFUSED conflicts
 mk_repo "$T/ln" local-solo
 WT1="$(mk_task T1 "$B1" notes.txt notes)"
 HEAD1="$(git -C "$WT1" rev-parse HEAD)"
-(cd "$P" && "$SRC/scripts/local-ops.sh" create-pr "$B1" "$INT" "feat: add notes" "$T/body.md" >/dev/null 2>&1)
+(cd "$P" && "$SRC/scripts/local-ops.sh" create-pr "$B1" "$INT" "feat: add notes" "$T/body.md" >/dev/null 2>&1) \
+  && ok "local solo: create-pr exits 0 with no link to print" || ko "local solo: create-pr exit code"
 [[ -f "$P/.claude/workflow/local-mr/${B1//\//-}.json" ]] || ko "create-pr made no record"
 S=(demo T1 --sha "$HEAD1")
 NOTES="$P/.claude/workflow/demo/notes.md"; REC="$P/.claude/workflow/local-mr/${B1//\//-}.json"
