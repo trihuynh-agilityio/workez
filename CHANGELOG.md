@@ -34,6 +34,7 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 - Every `check-task.sh` failure names the plan line or path at fault, the rule it broke and a correct example.
 
 ### Fixed
+- `tools/release.sh` changes only the `"version"` line of `plugin.json` instead of reformatting the whole file with `jq`, and prints the release steps through `dev` and `main`.
 - `lib/config.sh` resolves symlinks in the project and repository paths (`pwd -P`), so a project reached through a symlink (macOS `/var` → `/private/var`) no longer gets a wrong project prefix; `format-on-edit.sh` resolves the edited file's path the same way.
 - `local-ops.sh create-pr` exits 0 on success when it has no merge request link to print (no remote, or not GitLab).
 
