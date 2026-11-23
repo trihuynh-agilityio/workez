@@ -11,6 +11,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/hook-env.sh" || exit 0
 
 file="$(jq -r '.tool_input.file_path // empty' <<<"$input")"
 [[ -n "$file" && -f "$file" ]] || exit 0
+# The project paths are physical (symlinks resolved, e.g. macOS /var -> /private/var); so is the file's.
+file="$(cd "$(dirname "$file")" && pwd -P)/$(basename "$file")"
 
 # The project folder the file belongs to.
 case "$file" in

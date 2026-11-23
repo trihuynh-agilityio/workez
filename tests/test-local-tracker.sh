@@ -173,7 +173,8 @@ cd "$T/solo"
 git branch feat/demo dev
 git switch -q -c feat/demo-notes feat/demo
 echo n >n.txt && git add n.txt && git commit -q -m "feat: n"
-out="$(ops create-pr feat/demo-notes feat/demo "feat: n" "$T/body.md")"
+out="$(ops create-pr feat/demo-notes feat/demo "feat: n" "$T/body.md")"; rc=$?
+[[ $rc == 0 ]] && ok "no remote: create-pr exits 0 with no link" || ko "no remote create-pr exit $rc"
 grep -q 'git switch feat/demo && git merge --no-ff feat/demo-notes' .claude/workflow/local-mr/feat-demo-notes.md \
   && [[ "$out" != *OPEN_MR* ]] && ok "no remote: create-pr prints the merge command, no link" || ko "no remote create-pr: $out"
 [[ "$(ops get-pr-state feat/demo-notes)" == *OPEN* ]] && ok "no remote: OPEN" || ko "no remote OPEN"

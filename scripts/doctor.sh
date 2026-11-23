@@ -80,6 +80,15 @@ jq -e '(.task_limits.tests_docs // []) | type == "array" and all(type == "string
   || fail "task_limits.tests_docs" "must be a list of glob strings"
 jq -e '.task_limits.skip_tests_docs | . == null or type == "boolean"' "$WF_CONFIG" >/dev/null 2>&1 \
   || fail "task_limits.skip_tests_docs" "must be true or false"
+jq -e '(.auto_merge.task_prs // false) | type == "boolean"' "$WF_CONFIG" >/dev/null 2>&1 \
+  || fail "auto_merge.task_prs" "must be true or false"
+am_method="$(jq -r '.auto_merge.method // "merge"' "$WF_CONFIG" 2>/dev/null)"
+[[ "$am_method" == merge ]] || fail "auto_merge.method" "'$am_method'; only merge (a merge commit) is supported"
+if jq -e '.auto_merge.task_prs == true' "$WF_CONFIG" >/dev/null 2>&1; then
+  ok "auto-merge" "on: ready task PRs merge into the integration branch (merge commit); the final PR stays manual"
+else
+  ok "auto-merge" "off: the user merges every task PR"
+fi
 
 # workflow.local.json: one person's overrides, only of the personal keys, never committed.
 for f in "$WF_CONFIG" "$WF_LOCAL"; do

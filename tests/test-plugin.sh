@@ -45,6 +45,15 @@ jq -e '.permissions.allow | (index("Bash(gh api repos/acme/web/issues/*)") and i
   && ok "setup: allow rules from the config" || ko "setup allow: $(jq -c .permissions.allow "$s")"
 jq -e '.permissions.deny | (index("Bash(git push * main)") and (map(select(. == "Bash(gh pr merge *)")) | length == 1))' "$s" >/dev/null \
   && ok "setup: deny rules, no duplicates on re-run" || ko "setup deny: $(jq -c .permissions.deny "$s")"
+# The plugin's scripts (merge-task-pr.sh among them) are allowed by one glob; merging by hand stays denied.
+plugin_name="$(jq -r .name "$SRC/.claude-plugin/plugin.json")"
+pat="$(jq -r --arg n "$plugin_name" '.permissions.allow[] | select(startswith("Bash(*" + $n) and contains("/scripts/"))' "$s")"
+pat="${pat#Bash(}"; pat="${pat%)}"
+[[ "$pat" == "*workez*/scripts/*.sh*" && "/home/u/.claude/plugins/cache/workez/workez/1.0.0/scripts/merge-task-pr.sh demo T1 --sha abc1234" == $pat \
+  && "$SRC/scripts/merge-task-pr.sh demo T1 --sha abc1234" == $pat ]] \
+  && ok "setup: allow glob covers the plugin's scripts/merge-task-pr.sh" || ko "setup plugin glob: [$pat] $(jq -c .permissions.allow "$s")"
+jq -e '.permissions.deny | (index("Bash(git merge *)") and index("Bash(gh pr merge *)"))' "$s" >/dev/null \
+  && ok "setup: git merge and gh pr merge stay denied" || ko "setup deny merge: $(jq -c .permissions.deny "$s")"
 [[ "$(grep -cxF '.claude/workflow/' "$P/.gitignore")" == 1 && "$(grep -cxF 'specs/*/evidence/' "$P/.gitignore")" == 1 \
   && "$(grep -cxF '.claude/workflow.local.json' "$P/.gitignore")" == 1 ]] \
   && ok "setup: .gitignore lines added once" || ko "setup gitignore: $(cat "$P/.gitignore")"

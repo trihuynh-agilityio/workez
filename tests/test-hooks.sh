@@ -28,6 +28,9 @@ expect 0 $f "git push -u origin feat/15-remove-note"
 expect 0 $f "cd .claude/worktrees/feat-1-x && git push -u origin feat/1-x"
 expect 2 $f "git push origin dev"
 expect 2 $f "git merge feat/1-x"
+# The auto-merge script is not a git merge: both hooks let it run.
+expect 0 $f "/path/to/workez/scripts/merge-task-pr.sh demo T1 --sha abc1234"
+expect 0 $f "\${CLAUDE_PLUGIN_ROOT}/scripts/merge-task-pr.sh demo T1 --sha abc1234 --dry-run"
 
 p=block-push-protected.sh
 expect 0 $p "git push origin feat/1-x"
@@ -38,6 +41,7 @@ expect 2 $p "git push origin feat/1-x main"
 expect 2 $p "git push --all origin"
 expect 2 $p "git push origin"            # the current branch is dev
 expect 0 $p "git log --grep 'git push origin dev'"
+expect 0 $p "/path/to/workez/scripts/merge-task-pr.sh demo T1 --sha abc1234"
 
 # notify-on-finish.sh, dry run: title, branch, then the last reply as one plain line.
 # It notifies only for a session whose transcript ran a workez skill: $T/wz.jsonl has one.

@@ -41,10 +41,10 @@
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
 3. **Plan the work** – `plan.md`: waves of at most two tasks, size limits, acceptance-criteria coverage, then one GitHub sub-issue per task.
-4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge, fixes PR feedback and failed CI checks, and tells you about merge conflicts.
+4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge (or, with the opt-in `auto_merge.task_prs`, merges ready task PRs into the integration branch itself), fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
-The final PR carries a short `## Notable issues` section (blocked or wontfix items, failed checks, conflicts left to you, verify findings), so you can review just that PR. The `Stop` hook moves from one phase to the next. Nothing in the workflow merges, approves or force-pushes.
+The final PR carries a short `## Notable issues` section (blocked or wontfix items, failed checks, conflicts left to you, verify findings), so you can review just that PR. The `Stop` hook moves from one phase to the next. Nothing in the workflow approves or force-pushes, and it merges only a ready task PR into the integration branch, and only when you turn on `auto_merge.task_prs` (off by default); the final PR is always yours.
 
 **One small change?** `/workez:build-task <change>` (or `#<issue>`) skips the phases: you approve a one-task plan, and it runs the same pipeline (implementer, review loop, UI check, full test suite) to one PR straight to the base branch, then watches it until you merge.
 

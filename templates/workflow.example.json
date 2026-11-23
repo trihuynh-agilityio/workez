@@ -16,6 +16,10 @@
       "main"
     ]
   },
+  "auto_merge": {
+    "task_prs": false,
+    "method": "merge"
+  },
   "conventions": {
     "commit_types": [
       "feat",

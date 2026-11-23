@@ -196,7 +196,7 @@ case "$op" in
       cat "$body"
     } >"$(mr_md "$head")"
     echo "$head $(mr_md "$head") new"
-    [[ "$link" != - ]] && echo "OPEN_MR=$link"
+    if [[ "$link" != - ]]; then echo "OPEN_MR=$link"; fi
     ;;
   get-pr-state)
     (($#)) || usage "<branch>..."

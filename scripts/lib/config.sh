@@ -22,9 +22,9 @@ command -v jq >/dev/null 2>&1 || { echo "workflow: jq is required" >&2; return 2
 # Skips $HOME, whose .claude/ is Claude Code's user folder.
 wf_find_project() {
   local d
-  d="$(cd "$1" 2>/dev/null && pwd)" || return 1
+  d="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
   while [[ -n "$d" && "$d" != "/" ]]; do
-    [[ "$d" != "$(cd "$HOME" 2>/dev/null && pwd)" && -f "$d/.claude/workflow.json" ]] && { printf '%s' "$d"; return 0; }
+    [[ "$d" != "$(cd "$HOME" 2>/dev/null && pwd -P)" && -f "$d/.claude/workflow.json" ]] && { printf '%s' "$d"; return 0; }
     d="$(dirname "$d")"
   done
   return 1
@@ -36,13 +36,13 @@ if [[ -z "${WF_PROJECT:-}" || ! -f "${WF_PROJECT:-}/.claude/workflow.json" ]]; t
     return 2 2>/dev/null || exit 2
   }
 fi
-WF_PROJECT="$(cd "$WF_PROJECT" && pwd)"
+WF_PROJECT="$(cd "$WF_PROJECT" && pwd -P)"
 
-WF_TOP="$(cd "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
+WF_TOP="$(cd "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-common-dir)/.." && pwd -P)"
 # Inside a linked worktree: use the same folder of the main checkout.
 if [[ "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-dir)" != "$(git -C "$WF_PROJECT" rev-parse --path-format=absolute --git-common-dir)" ]]; then
   _wf_sub="$(git -C "$WF_PROJECT" rev-parse --show-prefix)"
-  [[ -f "$WF_TOP/${_wf_sub}.claude/workflow.json" ]] && WF_PROJECT="$(cd "$WF_TOP/$_wf_sub" && pwd)"
+  [[ -f "$WF_TOP/${_wf_sub}.claude/workflow.json" ]] && WF_PROJECT="$(cd "$WF_TOP/$_wf_sub" && pwd -P)"
   unset _wf_sub
 fi
 WF_CONFIG="$WF_PROJECT/.claude/workflow.json"

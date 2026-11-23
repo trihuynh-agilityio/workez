@@ -11,6 +11,7 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 ## [Unreleased]
 
 ### Added
+- Opt-in `auto_merge` in `workflow.json` (`task_prs`, `false` by default; `method`, only `merge`). With `task_prs` on, the build watch merges each ready task PR into the feature's integration branch with a merge commit; the final PR and `build-task` PRs are never auto-merged. `scripts/merge-task-pr.sh <feature> <task-id> --sha <sha> [--pr <n>] [--dry-run]` does the merge and refuses unless every guard holds (feature task only, integration branch target, local review PASS and UI check, head unchanged, mergeable, every check green); on the local tracker it merges with `--no-ff` in a throwaway worktree and pushes the integration branch when there is a remote. It appends an `auto-merged` line to the feature's `notes.md`. `gh-watch.sh --ready` prints `READY` lines for a PR with no new feedback, no failed or pending check and no conflict (exit 30 when only READY lines are new). `build-feature` step 4 merges ready task PRs when it is on, and `doctor.sh` reports it.
 - `scripts/note.sh` and the per-feature `notes.md` (`.claude/workflow/<feature>/`, git-ignored): one line per decision point (review blocker and major findings and their fix, wontfix, flaky or infra checks, conflicts, used-up fix budget, UI check FAIL, blocked tasks, spec deviations, verify FAIL, UNVERIFIED and major findings), never routine passes.
 - A short `## Notable issues` section (at most 8 bullets, condensed from `notes.md`) in the final PR (`build-feature` step 5, refreshed by `verify-feature`) and in `build-task` PRs.
 - Structure standard: `workez:project-context` also finds where code goes (folders, layers, import boundaries) in `CLAUDE.md`, `AGENTS.md` at any depth and `ARCHITECTURE*`, and accepts a task description. A missing structure standard returns the warning `No structure rules found for <area>; placement cannot be checked` instead of a question.
@@ -27,6 +28,10 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 - `check-task.sh` reads the task's **Files** as one line or a bullet list under it, with or without backticks; stray backticks, quotes, trailing commas and notes like `(new)` are dropped.
 - `check-task.sh` finds moves with `git diff -M` on the whole work, staged or not, so a moved file counts once and only its new path needs to be in **Files**.
 - Every `check-task.sh` failure names the plan line or path at fault, the rule it broke and a correct example.
+
+### Fixed
+- `lib/config.sh` resolves symlinks in the project and repository paths (`pwd -P`), so a project reached through a symlink (macOS `/var` → `/private/var`) no longer gets a wrong project prefix; `format-on-edit.sh` resolves the edited file's path the same way.
+- `local-ops.sh create-pr` exits 0 on success when it has no merge request link to print (no remote, or not GitLab).
 
 ## [0.6.0] - 2026-11-11
 
