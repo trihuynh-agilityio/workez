@@ -41,7 +41,7 @@
 1. **Plan** – `/workez:plan-feature <idea>` writes `intent.md` and opens a feature issue.
 2. **Design** – `spec.md`, checked by a spec reviewer.
 3. **Plan the work** – `plan.md`: waves of at most two tasks, size limits, acceptance-criteria coverage, then one GitHub sub-issue per task.
-4. **Build** – two lanes in parallel: implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge (or, with the opt-in `auto_merge.task_prs`, merges ready task PRs into the integration branch itself), fixes PR feedback and failed CI checks, and tells you about merge conflicts.
+4. **Build** – two lanes in parallel (with `lane_runner` `session`, each task in its own Claude desktop sub session): implementer → size/format guard → review loop → Playwright UI check → task PR. A session watch starts the next wave after you merge (or, with the opt-in `auto_merge.task_prs`, merges ready task PRs into the integration branch itself), fixes PR feedback and failed CI checks, and tells you about merge conflicts.
 5. **Verify** – checks, E2E, an AC table and a whole-feature review on a throwaway merge with the base branch; PASS or FAIL with a fix plan.
 
 The final PR carries a short `## Notable issues` section (blocked or wontfix items, failed checks, conflicts left to you, verify findings), so you can review just that PR. The `Stop` hook moves from one phase to the next. Nothing in the workflow approves or force-pushes, and it merges only a ready task PR into the integration branch, and only when you turn on `auto_merge.task_prs` (off by default); the final PR is always yours.
@@ -127,7 +127,7 @@ Check these before you install; `/workez:doctor` checks them for you afterwards.
 
 | Tool | Version | Used for |
 |---|---|---|
-| Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build and verify watches (they run only while the session is open, for up to 7 days) |
+| Claude Code | recent, interactive session | plugins, subagents, and `CronCreate` for the build and verify watches (they run only while the session is open, for up to 7 days); the desktop app for `lane_runner` `session` (build lanes as sub sessions), the plain CLI falls back to subagent lanes |
 | `git` | 2.42+ | worktrees per task (`worktree add --orphan` for the evidence branch) |
 | `gh` | signed in (`gh auth login`); not needed with the local tracker | issues, sub-issues, labels, PRs |
 | `jq` | 1.6+ | every script reads `workflow.json` with it |
@@ -177,7 +177,7 @@ It writes `.claude/workflow.json` (repository, branches, commands, formatters, d
 /workez:doctor
 ```
 
-Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
+Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: the tools and versions above, the `workflow.json` keys and their consistency (`lane_runner` is `session` or `agent`, with a warning when it is `session` and the desktop session tool is missing; branch names under `branches.prefix`, lanes `A` and `B`, distinct ports, existing command folders), the permission rules and `.gitignore` lines from setup, `CLAUDE.md`, a duplicate copy of the plugin in the project, the git remote and base branch, and on GitHub the sign-in, issues, write access and sub-issues. `FAIL` means the workflow will break; `WARN` means it runs with something missing. Run it after setup and whenever you change `workflow.json`.
 
 ## Status
 

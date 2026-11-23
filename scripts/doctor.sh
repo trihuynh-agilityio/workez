@@ -89,6 +89,12 @@ if jq -e '.auto_merge.task_prs == true' "$WF_CONFIG" >/dev/null 2>&1; then
 else
   ok "auto-merge" "off: the user merges every task PR"
 fi
+lane_runner="$(jq -r '.lane_runner // "agent"' "$WF_CONFIG" 2>/dev/null)"
+case "$lane_runner" in
+  session) ok "lane_runner" "session (each task in its own desktop sub session; falls back to agent lanes without the session tool)" ;;
+  agent) ok "lane_runner" "agent (lanes run as subagents of the build session)" ;;
+  *) fail "lane_runner" "'$lane_runner'; must be session or agent" ;;
+esac
 
 # workflow.local.json: one person's overrides, only of the personal keys, never committed.
 for f in "$WF_CONFIG" "$WF_LOCAL"; do
