@@ -29,6 +29,10 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 - `check-task.sh` finds moves with `git diff -M` on the whole work, staged or not, so a moved file counts once and only its new path needs to be in **Files**.
 - Every `check-task.sh` failure names the plan line or path at fault, the rule it broke and a correct example.
 
+### Fixed
+- `lib/config.sh` resolves symlinks in the project and repository paths (`pwd -P`), so a project reached through a symlink (macOS `/var` → `/private/var`) no longer gets a wrong project prefix; `format-on-edit.sh` resolves the edited file's path the same way.
+- `local-ops.sh create-pr` exits 0 on success when it has no merge request link to print (no remote, or not GitLab).
+
 ## [0.6.0] - 2026-11-11
 
 ### Added
