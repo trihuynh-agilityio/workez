@@ -80,7 +80,7 @@ Every token goes where it counts.
 
 ### Token usage report
 
-When a feature closes (or a `build-task` PR is merged), the workflow adds up the tokens its sessions and subagents used, per phase, agent and model, with an estimated cost at API list prices (a Claude subscription is billed differently). It is read from Claude Code's own transcripts by `scripts/token-usage.sh`, with no model and no extra GitHub call: the report is part of the closing comment on the feature or task issue, and a copy stays in `.claude/token-usage/<feature>.md`, which is git-ignored and never committed or pushed. `status.sh` shows the running total. Prices are built in; add or override them with `pricing` in `.claude/workflow.json` (see `WORKFLOW.md`).
+When a feature closes (or a `build-task` PR is merged), the workflow adds up the tokens its sessions and subagents used, per phase, agent and model, with an estimated cost at API list prices (a Claude subscription is billed differently). It is read from Claude Code's own transcripts by `scripts/token-usage.sh`, with no model and no extra GitHub call: the report goes to the file and the script prints only its `**Total:**` line (no model reads the report); it is part of the closing comment on the feature or task issue, and a copy stays in `.claude/token-usage/<feature>.md`, which is git-ignored and never committed or pushed. `status.sh` shows the running total. Prices are built in; add or override them with `pricing` in `.claude/workflow.json` (see `WORKFLOW.md`).
 
 ## Commits and branches
 

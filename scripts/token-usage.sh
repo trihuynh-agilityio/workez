@@ -2,9 +2,15 @@
 # Tokens and API-equivalent cost of one feature (or standalone task), from Claude Code's own transcripts.
 # Pure shell + jq: no model tokens. Never fails a workflow step (exit 0 when there is nothing to report).
 #   token-usage.sh <feature> [--md|--json] [--out <file>]
+#   token-usage.sh <feature> --append <file>
 #   --md     (default) a Markdown report: phase x agent x model table, per-model subtotals, a Total line.
 #   --json   the raw aggregates (rows, models, total, unknown_models, partial, sessions).
-#   --out    also writes the output to <file> (its folder is created); nothing is written when there is no data.
+#   --out    (md) writes the full report to <file> (its folder is created) and prints ONLY its `**Total:**` line, so
+#            the model running the workflow never reads the report; nothing is written when there is no data.
+#            Without --out the full report is printed.
+#   --append appends the saved report .claude/token-usage/<feature>.md to <file>, after one blank line, without
+#            recomputing (it runs after cleanup-feature.sh removed sessions.tsv). Prints nothing on success; does
+#            nothing (exit 0) when no report was saved. Cannot be combined with --out or --json (exit 2).
 # Where the numbers come from:
 #   - .claude/workflow/<feature>/sessions.tsv, written by the claim-feature.sh hook: one line per phase
 #     change of a session, `<unix ts> <session id> <phase> <transcript path>`. Without it the single session
@@ -25,18 +31,27 @@
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/config.sh" || exit 2
 
-usage() { echo "usage: token-usage.sh <feature> [--md|--json] [--out <file>]" >&2; exit 2; }
+usage() { echo "usage: token-usage.sh <feature> [--md|--json] [--out <file>] | token-usage.sh <feature> --append <file>" >&2; exit 2; }
 feature="${1:-}"; shift 2>/dev/null
-mode=md; out=""
+mode=md; out=""; append=""; json=false
 while (($#)); do
   case "$1" in
     --md) mode=md; shift ;;
-    --json) mode=json; shift ;;
+    --json) mode=json; json=true; shift ;;
     --out) [[ -n "${2:-}" ]] || usage; out="$2"; shift 2 ;;
+    --append) [[ -n "${2:-}" ]] || usage; append="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
 [[ "$feature" =~ ^[a-z0-9][a-z0-9-]*$ ]] || usage
+[[ -z "$append" || ( -z "$out" && "$json" == false ) ]] || usage
+
+if [[ -n "$append" ]]; then
+  saved="$WF_PROJECT/.claude/token-usage/$feature.md"
+  [[ -f "$saved" ]] || exit 0
+  { printf '\n'; cat "$saved"; } >>"$append" 2>/dev/null
+  exit 0
+fi
 
 DIR="$WF_PROJECT/.claude/workflow"
 PROJECTS="${WF_CLAUDE_PROJECTS:-$HOME/.claude/projects}"
@@ -175,8 +190,14 @@ result="$(jq -n -r --arg f "$feature" --arg mode "$mode" --argjson partial "$par
     end' 2>/dev/null)" || result=""
 
 [[ -n "$result" ]] || { echo "No token usage data found for $feature."; exit 0; }
+if [[ -n "$out" && "$mode" == md && "$result" != "No token usage data"* ]]; then
+  if mkdir -p "$(dirname "$out")" 2>/dev/null && printf '%s\n' "$result" >"$out" 2>/dev/null; then
+    printf '%s\n' "$result" | grep -m1 '^\*\*Total:\*\*'
+    exit 0
+  fi
+fi
 printf '%s\n' "$result"
-if [[ -n "$out" && "$result" != "No token usage data"* ]] && ! grep -q '"empty": true' <<<"$result"; then
+if [[ -n "$out" && "$mode" == json ]] && ! grep -q '"empty": true' <<<"$result"; then
   mkdir -p "$(dirname "$out")" 2>/dev/null && printf '%s\n' "$result" >"$out" 2>/dev/null
 fi
 exit 0

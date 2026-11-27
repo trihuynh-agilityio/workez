@@ -59,12 +59,32 @@ j="$(tu alpha --json)"   # claude-opus-4-8 keeps its own, longer prefix
 [[ "$(jq -r '.total.cost * 1000000 | round' <<<"$j")" == 237700 ]] && ok "pricing: the longest model prefix wins" || ko "pricing longest: $(jq -c .total <<<"$j")"
 
 # Markdown report and --out.
-md="$(tu alpha --out "$T/app/.claude/token-usage/alpha.md")"
+OUT="$T/app/.claude/token-usage/alpha.md"
+stdout="$(tu alpha --out "$OUT")"
+md="$(cat "$OUT" 2>&1)"
 [[ "$md" == "## Token usage: alpha"* && "$md" == *"| Phase | Agent | Model | Input | Output | Cache write | Cache read | Total | Cost |"* \
   && "$md" == *"**Total:** 30k tokens"* && "$md" == *'$0.24'* && "$md" == *"| plan | (main) | claude-opus-4-8 | 7.1k | 7.2k | 1k | 10k | 25.3k | \$0.23 |"* ]] \
-  && ok "md: heading, table header, Total line, readable numbers" || ko "md: $md"
+  && ok "md: heading, table header, Total line, readable numbers (in the file)" || ko "md: $md"
 [[ "$md" == *"API list prices"* && "$md" != *"Partial"* ]] && ok "md: says it is an estimate" || ko "md: estimate"
-[[ "$(cat .claude/token-usage/alpha.md)" == "$md" ]] && ok "out: --out writes the report (folder created)" || ko "out: $(cat .claude/token-usage/alpha.md 2>&1)"
+[[ "$stdout" == "$(grep '^\*\*Total:\*\*' "$OUT")" && "$stdout" == "**Total:** 30k tokens"* && "$stdout" != *"|"* ]] \
+  && ok "out: stdout is only the Total line, the file has the report" || ko "out stdout: $stdout"
+[[ "$(tu alpha)" == "$md" ]] && ok "md: without --out stdout is the full report" || ko "md: stdout without --out"
+
+# --append: the saved report goes after a blank line, no recompute, silent.
+printf 'close note\nKEPT x\n' >"$T/close.md"
+ap="$(tu alpha --append "$T/close.md")"; rc=$?
+[[ $rc == 0 && -z "$ap" ]] && ok "append: silent, exit 0" || ko "append: $rc $ap"
+{ printf 'close note\nKEPT x\n\n'; cat "$OUT"; } >"$T/close.expect"
+cmp -s "$T/close.md" "$T/close.expect" && ok "append: original content first, blank line, then the saved report" || ko "append: $(cat "$T/close.md")"
+printf 'only\n' >"$T/close2.md"
+mv $W/alpha/sessions.tsv "$T/sessions.tsv.bak"
+tu alpha --append "$T/close2.md" >/dev/null; mv "$T/sessions.tsv.bak" $W/alpha/sessions.tsv
+[[ "$(sed -n '3p' "$T/close2.md")" == "## Token usage: alpha" ]] && ok "append: works without sessions.tsv (no recompute)" || ko "append no tsv"
+printf 'keep\n' >"$T/close3.md"
+tu empty --append "$T/close3.md"; rc=$?
+[[ $rc == 0 && "$(cat "$T/close3.md")" == "keep" ]] && ok "append: no saved report is a silent no-op" || ko "append none: $rc"
+tu alpha --append x --json >/dev/null 2>&1; [[ $? == 2 ]] && ok "append: with --json exits 2" || ko "append --json"
+tu alpha --append x --out y >/dev/null 2>&1; [[ $? == 2 ]] && ok "append: with --out exits 2" || ko "append --out"
 
 # Owner fallback: one session, found by searching the projects folder, reported as partial.
 mkdir -p $W/gamma
