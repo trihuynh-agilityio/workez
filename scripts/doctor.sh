@@ -162,7 +162,7 @@ if [[ -f "$settings" ]] && jq -e --arg p "$plugin" '.permissions.allow // [] | (
   ok "permissions" ".claude/settings.json"
 else fail "permissions" "workflow rules missing in .claude/settings.json; run setup-project.sh"; fi
 gi_missing=""
-for l in ".claude/workflow/" ".claude/worktrees/" "$(cfg .docs_dir)/*/reviews/" "$(cfg .docs_dir)/*/evidence/"; do
+for l in ".claude/workflow/" ".claude/worktrees/" ".claude/token-usage/" "$(cfg .docs_dir)/*/reviews/" "$(cfg .docs_dir)/*/evidence/"; do
   git -C "$WF_PROJECT" check-ignore -q --no-index "${l%/}/x" 2>/dev/null || gi_missing="$gi_missing $l"
 done
 [[ -z "$gi_missing" ]] && ok ".gitignore" || fail ".gitignore" "not ignored:$gi_missing; run setup-project.sh"

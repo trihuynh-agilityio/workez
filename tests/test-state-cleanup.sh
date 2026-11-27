@@ -83,6 +83,18 @@ claim s1 Skill '{"skill":"workez:plan-feature","args":"add a search box"}'
 [[ "$(cat $W/omega/owner)" == s3 && ! -e $W/add ]] && ok "claim: other skills and free-text arguments claim nothing" || ko "claim: false claim"
 claim s1 Skill '{"skill":"workez:design-feature","args":"../.."}'
 [[ ! -e .claude/owner && ! -e owner ]] && ok "claim: a path argument is ignored" || ko "claim: path"
+# sessions.tsv: one mark per phase change of a session, with its transcript path; a repeat adds nothing.
+S=$W/omega/sessions.tsv
+[[ "$(wc -l <$S | tr -d ' ')" -ge 1 && "$(head -n 1 $S | awk -F'\t' '{print $2 "|" $3 "|" $4}')" == "s1|-|-" ]] && ok "claim: records a sessions.tsv mark (no state yet: phase -)" || ko "claim: sessions.tsv: $(cat $S 2>&1)"
+echo '{"feature":"omega","phase":"design","status":"in_progress"}' >$W/omega/state.json
+n="$(wc -l <$S | tr -d ' ')"
+jq -n --arg d "$PWD/$W/omega/state.json" '{session_id:"s7", transcript_path:"/t/s7.jsonl", tool_name:"Write", tool_input:{file_path:$d}}' | bash $SRC/hooks/claim-feature.sh
+jq -n --arg d "$PWD/$W/omega/state.json" '{session_id:"s7", transcript_path:"/t/s7.jsonl", tool_name:"Write", tool_input:{file_path:$d}}' | bash $SRC/hooks/claim-feature.sh
+[[ "$(tail -n 1 $S | awk -F'\t' '{print $2 "|" $3 "|" $4}')" == "s7|design|/t/s7.jsonl" && "$(wc -l <$S | tr -d ' ')" == $((n + 1)) ]] \
+  && ok "claim: mark has session, phase and transcript; the same phase is not repeated" || ko "claim: mark: $(cat $S)"
+echo '{"feature":"omega","phase":"build","status":"in_progress"}' >$W/omega/state.json
+jq -n --arg d "$PWD/$W/omega/state.json" '{session_id:"s7", transcript_path:"/t/s7.jsonl", tool_name:"Write", tool_input:{file_path:$d}}' | bash $SRC/hooks/claim-feature.sh
+[[ "$(tail -n 1 $S | cut -f3)" == build && "$(wc -l <$S | tr -d ' ')" == $((n + 2)) ]] && ok "claim: a phase change adds a mark" || ko "claim: phase change: $(cat $S)"
 rm -rf $W/omega
 
 # ---- build-lock.sh ----

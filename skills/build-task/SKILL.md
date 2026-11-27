@@ -2,7 +2,7 @@
 name: build-task
 description: Use when asked to build ONE small, standalone change (a tweak, a small addition, a refactor) without the whole feature workflow. Writes a one-task plan and shows it to the user for approval before anything else happens, then opens a task issue, runs the task pipeline (implementer, review loop, UI check, full test suite), opens one PR straight to the base branch, then watches it until it is merged. Run with a description of the change, an existing issue as `#<n>`, or the task's slug to resume. A change that needs more than one task goes to plan-feature.
 model: opus
-allowed-tools: Skill Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/worktree.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/note.sh *)
+allowed-tools: Skill Read Write Edit Glob Grep Agent AskUserQuestion CronCreate CronList CronDelete Bash(ls *) Bash(mkdir *) Bash(git status*) Bash(git log*) Bash(git branch*) Bash(git fetch *) Bash(git rev-parse *) Bash(git worktree *) Bash(git ls-remote *) Bash(*/scripts/worktree.sh *) Bash(*/scripts/gh-watch.sh *) Bash(*/scripts/mark-merged.sh *) Bash(*/scripts/cleanup-feature.sh *) Bash(*/scripts/code-head.sh*) Bash(*/scripts/note.sh *) Bash(*/scripts/token-usage.sh *)
 ---
 
 # Build one task
@@ -111,7 +111,7 @@ If `CronCreate` is unavailable, say so, and tell the user to run `/workez:build-
 
 ## 9. Done
 
-Call `workez:github-ops` once: `swap-label <n> status:in-review status:done` and `close-issue <n>` (`already closed` is fine: `Closes` did it). `CronDelete` any `loop_id`. Then run `cleanup-feature.sh <slug>`: it removes the task's worktree, its local branch once `<base>` contains it, its evidence branch copy, and `.claude/workflow/<slug>/` with the plan and state; it never removes `<base>`. Report any `KEPT` line, then the issue, the PR and that the task is done.
+First run `${CLAUDE_PLUGIN_ROOT}/scripts/token-usage.sh <slug> --md --out <project root>/.claude/token-usage/<slug>.md` (no model; it must run before the cleanup, which deletes the `sessions.tsv` it reads). Its stdout is only the `**Total:**` line; never read the report file, the comment uses it as is through `--body-file`. Then call `workez:github-ops` once: `swap-label <n> status:in-review status:done`, `comment <n> --body-file <project root>/.claude/token-usage/<slug>.md` (only when the script wrote the file; on the local tracker the comment is only logged, the file stays) and `close-issue <n>` (`already closed` is fine: `Closes` did it). `CronDelete` any `loop_id`. Then run `cleanup-feature.sh <slug>`: it removes the task's worktree, its local branch once `<base>` contains it, its evidence branch copy, and `.claude/workflow/<slug>/` with the plan and state; it never removes `<base>`. The token report stays in `.claude/token-usage/<slug>.md`, git-ignored, never committed or pushed. Report any `KEPT` line, then the issue, the PR, the total tokens and cost (the `**Total:**` line of the report) and that the task is done.
 
 ## State
 

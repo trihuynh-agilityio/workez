@@ -56,7 +56,7 @@ merged="$(jq --argjson a "$allow" --argjson d "$deny" '
   | .permissions.deny = (((.permissions.deny // []) + $d) | reduce .[] as $x ([]; if index([$x]) then . else . + [$x] end))' <<<"$current")"
 
 ignore="$WF_PROJECT/.gitignore"
-lines=(".claude/workflow/" ".claude/workflow.local.json" ".claude/worktrees/" "$docs/*/reviews/" "$docs/*/evidence/")
+lines=(".claude/workflow/" ".claude/workflow.local.json" ".claude/worktrees/" ".claude/token-usage/" "$docs/*/reviews/" "$docs/*/evidence/")
 missing=()
 for l in "${lines[@]}"; do grep -qxF -- "$l" "$ignore" 2>/dev/null || missing+=("$l"); done
 

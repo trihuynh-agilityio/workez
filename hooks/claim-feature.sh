@@ -7,6 +7,10 @@
 #     (for example `/workez:design-feature search-notes` run by hand to take over a stalled feature).
 # next-phase.sh hands a feature's next phase only to its owner; build-lock.sh keeps one session from
 # building two features at once. Never blocks anything; any problem is ignored.
+# It also appends `<unix ts> <session id> <phase> <transcript path>` (tab separated) to
+# .claude/workflow/<feature>/sessions.tsv for every feature it detects, unless the session's latest mark
+# anywhere is already this feature in the same phase. token-usage.sh reads these marks to attribute a
+# session's tokens to the feature and its phases.
 
 input="$(cat)"
 command -v jq >/dev/null 2>&1 || exit 0
@@ -35,8 +39,20 @@ case "$(jq -r '.tool_name // empty' <<<"$input")" in
     ;;
 esac
 
+transcript="$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)"
+# mark <feature>: one sessions.tsv line for this session, unless its latest mark (in any feature) is the same.
+mark() {
+  local phase last
+  phase="$(jq -r '.phase // empty' "$DIR/$1/state.json" 2>/dev/null)"
+  last="$(awk -F'\t' -v s="$session" '$2 == s && $1 >= m { m = $1; n = FILENAME; p = $3 } END { print n "\t" p }' "$DIR"/*/sessions.tsv 2>/dev/null)"
+  [[ "$last" == "$DIR/$1/sessions.tsv"$'\t'"${phase:--}" ]] && return 0
+  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$session" "${phase:--}" "${transcript:--}" >>"$DIR/$1/sessions.tsv" 2>/dev/null
+  return 0
+}
+
 for f in "${features[@]}"; do
   [[ "$f" != . && "$f" != .. && -d "$DIR/$f" ]] || continue
+  mark "$f"
   [[ "$(cat "$DIR/$f/owner" 2>/dev/null)" == "$session" ]] && continue
   printf '%s\n' "$session" >"$DIR/$f/owner" 2>/dev/null
 done

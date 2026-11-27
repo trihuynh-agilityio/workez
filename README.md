@@ -20,7 +20,7 @@
 
 - [How it works](#how-it-works)
 - [Review only the final PR](#review-only-the-final-pr)
-- [Saving tokens](#saving-tokens)
+- [Saving tokens](#saving-tokens) ([token usage report](#token-usage-report))
 - [Commits and branches](#commits-and-branches)
 - [Turn hard rules into lint rules or tests](#turn-hard-rules-into-lint-rules-or-tests)
 - [Requirements](#requirements)
@@ -77,6 +77,24 @@ Every token goes where it counts.
 - **Right model, right job**: Opus thinks, Sonnet builds, Haiku runs the errands.
 - **Scripts first**: gates and watches cost zero tokens.
 - **Lean context**: each agent reads only what its task needs.
+
+### Token usage report
+
+When a feature closes (or a `build-task` PR is merged), you get how many tokens it took and what that would cost at API list prices (a Claude subscription is billed differently):
+
+```
+| Phase  | Agent              | Model             | Input | Output | Cache write | Cache read | Total | Cost   |
+|--------|--------------------|-------------------|------:|-------:|------------:|-----------:|------:|-------:|
+| design | (main)             | claude-opus-5-5   |  1.2k |    18k |         90k |       410k |  519k |  $0.90 |
+| build  | workez:implementer | claude-sonnet-5-5 |  3.1k |   140k |        600k |       4.2M |  4.9M |  $3.33 |
+**Total:** 5.4M tokens (...), about $4.23
+```
+
+- **Where**: in the closing comment on the feature or task issue, and in `.claude/token-usage/<feature>.md`, which is git-ignored and never committed or pushed (local tracker included). `status.sh` shows the running total of a feature in progress.
+- **How**: `scripts/token-usage.sh` reads Claude Code's own transcripts, the subagents' included, and splits them per phase, agent and model. The `claim-feature.sh` hook records which session worked on which feature and phase in `sessions.tsv`.
+- **Cost of the report itself**: a few hundred tokens per workflow. The script uses no model, the report rides on the existing closing comment, and no model reads or re-types it: the script prints only its `**Total:**` line and appends the report to the comment file itself.
+- **Prices**: built in for current models; add or override them with `pricing` in `.claude/workflow.json` (see [WORKFLOW.md](WORKFLOW.md)). An unknown model shows its tokens with cost `?`.
+- **Existing projects**: re-run `/workez:setup` to add `.claude/token-usage/` to `.gitignore`. A feature started before this version is reported as partial (its owner session only).
 
 ## Commits and branches
 
@@ -203,7 +221,7 @@ Runs `scripts/doctor.sh`, which changes nothing and prints one line per check: t
 bash <plugin>/scripts/status.sh [--short] [feature]
 ```
 
-Run it from a shell inside the project: no Claude session, no tokens. It reads every `.claude/workflow/*/state.json` and the `pr-states.tsv` next to it, and prints per feature (and `build-task`) its phase and status, who acts next (`you` or `Claude`) and what to do, the task statuses, the PR states as last recorded, and the session watch. It never calls GitHub, so PR states are as fresh as the last build or verify run. Features waiting on you come first, and the last line names them. `--short` prints one line per feature: feature, phase / status, who and next.
+Run it from a shell inside the project: no Claude session, no tokens. It reads every `.claude/workflow/*/state.json` and the `pr-states.tsv` next to it, and prints per feature (and `build-task`) its phase and status, who acts next (`you` or `Claude`) and what to do, the task statuses, the PR states as last recorded, the session watch, and the tokens used so far with their estimated cost. It never calls GitHub, so PR states are as fresh as the last build or verify run. Features waiting on you come first, and the last line names them. `--short` prints one line per feature: feature, phase / status, who and next.
 
 ## Notifications
 
