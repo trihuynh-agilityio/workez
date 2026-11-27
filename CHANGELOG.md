@@ -10,6 +10,8 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-27
+
 ### Added
 - Token usage report. `scripts/token-usage.sh <feature> [--md|--json] [--out <file>]` adds up the input, output, cache write and cache read tokens and the API-list-price cost of a feature or `build-task` from the session transcripts and their subagents, per phase, agent and model (no model, pure shell and jq). The `claim-feature.sh` hook now also records `.claude/workflow/<feature>/sessions.tsv` (session, phase, transcript path) so each session's tokens are attributed to the feature and phase it was working on. `verify-feature` step 9 and `build-task` step 9 run it before `cleanup-feature.sh`, put the report in the existing closing comment and keep it in `.claude/token-usage/<feature>.md` (git-ignored by `setup-project.sh`, checked by `doctor.sh`, never committed or pushed). With `--out` the script prints only the `**Total:**` line, and the new `--append <file>` adds the saved report to the closing comment file, so the model running the workflow never reads or re-types the report (fewer output tokens). `status.sh` shows a `tokens:` line. Optional `pricing` key in `workflow.json` overrides or adds model prices; `WF_CLAUDE_PROJECTS` overrides the transcripts folder used by the owner fallback.
 
@@ -121,7 +123,8 @@ First release of workez: a Claude Code plugin that takes a feature from intent t
 - `setup` skill to configure a project (`.claude/workflow.json`, permissions, `.gitignore`) and `doctor` skill to check tools, configuration and GitHub access.
 - Project configuration in `.claude/workflow.json`: naming, Conventional Commits rules (`conventions`) and commit trailers (`commit_trailers`); see `templates/workflow.example.json`.
 
-[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/trihuynh-agilityio/workez/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/trihuynh-agilityio/workez/compare/v0.5.0...v0.6.0
