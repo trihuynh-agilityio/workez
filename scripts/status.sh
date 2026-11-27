@@ -5,6 +5,7 @@
 #   status.sh [--short] [feature]
 # Per feature: phase / status, how long ago the state changed, who acts next ("you" or "Claude") and
 # what to do, then the task statuses, the PR states as last recorded and the session watch, if any.
+# With sessions.tsv, a `tokens:` line (total and API-list-price cost, from token-usage.sh).
 # --short: one line per feature (feature, phase / status, who, next). Features waiting on you come first.
 # PR states are only as fresh as the last build or verify run; GitHub may be ahead of them.
 
@@ -98,6 +99,9 @@ for s in "${files[@]}"; do
         printf '  %-7s %s  (%s, %s)\n' "$([[ $t == pr-states ]] && echo "PRs:" || echo "verify:")" \
           "$(pr_line "$d/$t.tsv")" "$t.tsv" "$(ago "$d/$t.tsv")"
       done
+      if [[ -s "$d/sessions.tsv" ]] && tu="$(bash "$(dirname "${BASH_SOURCE[0]}")/token-usage.sh" "$name" --json 2>/dev/null)"; then
+        jq -r 'select(.empty != true) | "\(.total.total) \(.total.cost)"' <<<"$tu" 2>/dev/null | awk 'NF == 2 { printf "  tokens: %d (~$%.2f)\n", $1, $2 }'
+      fi
       [[ -n "$loop" ]] && printf '  watch:  %s (runs only while its session is open)\n' "$loop"
     )"$'\n\n'
   fi

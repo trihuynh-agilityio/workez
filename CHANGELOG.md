@@ -10,6 +10,9 @@ Add each change under `Unreleased` as you make it. `tools/release.sh` turns that
 
 ## [Unreleased]
 
+### Added
+- Token usage report. `scripts/token-usage.sh <feature> [--md|--json] [--out <file>]` adds up the input, output, cache write and cache read tokens and the API-list-price cost of a feature or `build-task` from the session transcripts and their subagents, per phase, agent and model (no model, pure shell and jq). The `claim-feature.sh` hook now also records `.claude/workflow/<feature>/sessions.tsv` (session, phase, transcript path) so each session's tokens are attributed to the feature and phase it was working on. `verify-feature` step 9 and `build-task` step 9 run it before `cleanup-feature.sh`, put the report in the existing closing comment and keep it in `.claude/token-usage/<feature>.md` (git-ignored by `setup-project.sh`, checked by `doctor.sh`, never committed or pushed). `status.sh` shows a `tokens:` line. Optional `pricing` key in `workflow.json` overrides or adds model prices; `WF_CLAUDE_PROJECTS` overrides the transcripts folder used by the owner fallback.
+
 ## [0.8.0] - 2026-11-23
 
 ### Added
